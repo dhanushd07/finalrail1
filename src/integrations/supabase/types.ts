@@ -9,7 +9,80 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      crack_data: {
+        Row: {
+          created_at: string | null
+          detection_json: Json | null
+          has_crack: boolean | null
+          id: string
+          image_url: string
+          latitude: number | null
+          longitude: number | null
+          timestamp: string
+          user_id: string
+          video_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          detection_json?: Json | null
+          has_crack?: boolean | null
+          id?: string
+          image_url: string
+          latitude?: number | null
+          longitude?: number | null
+          timestamp: string
+          user_id: string
+          video_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          detection_json?: Json | null
+          has_crack?: boolean | null
+          id?: string
+          image_url?: string
+          latitude?: number | null
+          longitude?: number | null
+          timestamp?: string
+          user_id?: string
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crack_data_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      videos: {
+        Row: {
+          created_at: string | null
+          gps_log_url: string
+          id: string
+          status: string | null
+          user_id: string
+          video_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          gps_log_url: string
+          id?: string
+          status?: string | null
+          user_id: string
+          video_url: string
+        }
+        Update: {
+          created_at?: string | null
+          gps_log_url?: string
+          id?: string
+          status?: string | null
+          user_id?: string
+          video_url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

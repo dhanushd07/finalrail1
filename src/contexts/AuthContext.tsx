@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, getCurrentUser } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
 
 interface AuthContextType {
@@ -20,10 +20,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check for current session
+    // Check current session
     const checkUser = async () => {
       try {
-        const currentUser = await getCurrentUser();
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (currentUser) {
           setUser({
             id: currentUser.id,
@@ -47,6 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: session.user.id,
             email: session.user.email || '',
           });
+          navigate('/dashboard');
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           navigate('/login');
