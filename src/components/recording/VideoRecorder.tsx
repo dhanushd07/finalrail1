@@ -1,10 +1,9 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Camera, Video, StopCircle, AlertCircle } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { uploadFile, createVideoRecord } from '@/lib/supabase';
@@ -21,14 +20,12 @@ const VideoRecorder = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const gpsLogRef = useRef<GPSCoordinate[]>([]);
   const gpsWatchIdRef = useRef<number | null>(null);
   
-  // State
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingTime, setRecordingTime] = useState<number>(0);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
@@ -38,10 +35,8 @@ const VideoRecorder = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Timer ref for recording duration
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Get available cameras on component mount
   useEffect(() => {
     const getCameras = async () => {
       try {
@@ -64,7 +59,6 @@ const VideoRecorder = () => {
     getCameras();
     
     return () => {
-      // Clean up resources when component unmounts
       stopRecording();
       if (gpsWatchIdRef.current) {
         navigator.geolocation.clearWatch(gpsWatchIdRef.current);
@@ -72,7 +66,6 @@ const VideoRecorder = () => {
     };
   }, []);
   
-  // Update video stream when camera changes
   useEffect(() => {
     if (selectedCamera) {
       setupCamera();
@@ -160,7 +153,6 @@ const VideoRecorder = () => {
       return;
     }
     
-    // Ensure GPS is available before recording
     const gpsStarted = startGpsTracking();
     if (!gpsStarted) {
       setError('GPS tracking could not be started');
@@ -182,7 +174,6 @@ const VideoRecorder = () => {
       mediaRecorderRef.current.start(1000);
       setIsRecording(true);
       
-      // Start recording timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
@@ -206,10 +197,8 @@ const VideoRecorder = () => {
         try {
           setLoading(true);
           
-          // Create video blob from recorded chunks
           const videoBlob = new Blob(chunksRef.current, { type: 'video/webm' });
           
-          // Check video size (max 50MB)
           if (videoBlob.size > 50 * 1024 * 1024) {
             setError('Video size exceeds 50MB limit. Please record a shorter video.');
             setIsRecording(false);
@@ -220,7 +209,6 @@ const VideoRecorder = () => {
             return;
           }
           
-          // Convert GPS log to CSV format
           const gpsLogHeader = 'timestamp,latitude,longitude,accuracy';
           const gpsLogRows = gpsLogRef.current.map(coord => 
             `${coord.timestamp},${coord.latitude},${coord.longitude},${coord.accuracy || 0}`
@@ -232,19 +220,16 @@ const VideoRecorder = () => {
             throw new Error('User not authenticated');
           }
           
-          // Generate unique filenames
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const videoFileName = `${user.id}/${timestamp}/video.webm`;
           const gpsLogFileName = `${user.id}/${timestamp}/gps_log.csv`;
           
-          // Upload files to Supabase storage
           const videoFile = new File([videoBlob], 'video.webm');
           const gpsLogFile = new File([gpsLogBlob], 'gps_log.csv');
           
           await uploadFile('videos', videoFileName, videoFile);
           await uploadFile('gps-logs', gpsLogFileName, gpsLogFile);
           
-          // Create video record in database
           await createVideoRecord({
             user_id: user.id,
             video_url: videoFileName,
@@ -272,7 +257,6 @@ const VideoRecorder = () => {
     }
   };
   
-  // Format recording time as MM:SS
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
