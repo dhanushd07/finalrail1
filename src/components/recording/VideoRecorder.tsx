@@ -205,6 +205,16 @@ const VideoRecorder = () => {
     }
   };
   
+  const uploadToStorage = async (bucket: string, path: string, file: File) => {
+    try {
+      await uploadFile(bucket, path, file);
+      console.log(`Successfully uploaded file to ${bucket}/${path}`);
+    } catch (err) {
+      console.error(`Error uploading file to ${bucket}/${path}:`, err);
+      throw err;
+    }
+  };
+
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
@@ -243,8 +253,17 @@ const VideoRecorder = () => {
           const videoFile = new File([videoBlob], 'video.webm');
           const gpsLogFile = new File([gpsLogBlob], 'gps_log.csv');
           
-          await uploadFile('videos', videoFileName, videoFile);
-          await uploadFile('gps-logs', gpsLogFileName, gpsLogFile);
+          try {
+            await uploadToStorage('videos', videoFileName, videoFile);
+            await uploadToStorage('gps-logs', gpsLogFileName, gpsLogFile);
+          } catch (uploadError) {
+            toast({
+              title: 'Upload Failed',
+              description: 'There was an error uploading your files. Please try again.',
+              variant: 'destructive',
+            });
+            throw uploadError;
+          }
           
           await createVideoRecord({
             user_id: user.id,
@@ -260,6 +279,11 @@ const VideoRecorder = () => {
         } catch (err) {
           console.error('Error saving recording:', err);
           setError('Failed to save recording');
+          toast({
+            title: 'Recording Error',
+            description: 'Failed to save your recording. Please try again.',
+            variant: 'destructive',
+          });
         } finally {
           chunksRef.current = [];
           gpsLogRef.current = [];

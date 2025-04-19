@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Video, Loader2, CheckCircle } from 'lucide-react';
+import { Video, Loader2, CheckCircle, FileVideo } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { VideoRecord } from '@/types';
 import { getVideoRecords, updateVideoStatus } from '@/lib/supabase';
@@ -97,13 +96,20 @@ const ProcessingQueue = () => {
         </TabsList>
         
         <TabsContent value="queued" className="space-y-4">
-          {loading && queuedVideos.length === 0 ? (
+          {loading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : queuedVideos.length === 0 ? (
             <div className="text-center py-10 border rounded-lg bg-muted/50">
+              <FileVideo className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No videos in queue</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Start by recording a video on the Record page
+              </p>
+              <Link to="/record" className="mt-4 inline-block">
+                <Button>Record Video</Button>
+              </Link>
             </div>
           ) : (
             queuedVideos.map((video) => (
@@ -146,13 +152,20 @@ const ProcessingQueue = () => {
         </TabsContent>
         
         <TabsContent value="completed" className="space-y-4">
-          {loading && completedVideos.length === 0 ? (
+          {loading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : completedVideos.length === 0 ? (
             <div className="text-center py-10 border rounded-lg bg-muted/50">
+              <CheckCircle className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No completed videos</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Your processed videos will appear here
+              </p>
+              <Link to="/record" className="mt-4 inline-block">
+                <Button>Record Video</Button>
+              </Link>
             </div>
           ) : (
             completedVideos.map((video) => (
