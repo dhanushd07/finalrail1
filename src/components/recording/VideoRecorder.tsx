@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -296,7 +297,7 @@ const VideoRecorder = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {cameras.map((camera) => (
-                    <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                    <SelectItem key={camera.deviceId} value={camera.deviceId || `camera-${cameras.indexOf(camera)}`}>
                       {camera.label || `Camera ${cameras.indexOf(camera) + 1}`}
                     </SelectItem>
                   ))}
@@ -376,3 +377,4 @@ const VideoRecorder = () => {
 };
 
 export default VideoRecorder;
+
