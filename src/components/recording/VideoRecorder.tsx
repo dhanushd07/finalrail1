@@ -1,9 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Camera, Video, StopCircle, AlertCircle } from 'lucide-react';
+import { Camera, Video, StopCircle, AlertCircle, CameraOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,12 +34,18 @@ const VideoRecorder = () => {
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     const getCameras = async () => {
       try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(track => track.stop());
+        
+        setCameraPermission(true);
+        
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         
@@ -50,10 +55,13 @@ const VideoRecorder = () => {
         }
         
         setCameras(videoDevices as MediaDeviceInfo[]);
-        setSelectedCamera(videoDevices[0].deviceId);
+        setTimeout(() => {
+          setSelectedCamera(videoDevices[0].deviceId || `camera-${0}`);
+        }, 100);
       } catch (err) {
         console.error('Error accessing media devices:', err);
         setError('Failed to access camera. Please check permissions.');
+        setCameraPermission(false);
       }
     };
     
@@ -75,8 +83,15 @@ const VideoRecorder = () => {
   
   const setupCamera = async () => {
     try {
+      setError(null);
+      
       if (mediaRecorderRef.current && isRecording) {
         stopRecording();
+      }
+      
+      if (videoRef.current && videoRef.current.srcObject) {
+        const existingStream = videoRef.current.srcObject as MediaStream;
+        existingStream.getTracks().forEach(track => track.stop());
       }
       
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -89,7 +104,7 @@ const VideoRecorder = () => {
       }
     } catch (err) {
       console.error('Error setting up camera:', err);
-      setError('Failed to access selected camera');
+      setError('Failed to access selected camera. The device may be in use by another application.');
     }
   };
   
@@ -306,13 +321,22 @@ const VideoRecorder = () => {
             </div>
             
             <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
+              {cameraPermission === false ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-gray-900">
+                  <CameraOff className="h-12 w-12 mb-2 opacity-60" />
+                  <p className="text-center px-4">
+                    Camera access denied. Please check your browser permissions and refresh the page.
+                  </p>
+                </div>
+              ) : (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              )}
               
               {isRecording && (
                 <div className="absolute top-4 left-4 flex items-center space-x-2 bg-black/70 text-white px-3 py-1 rounded-full">
@@ -342,7 +366,7 @@ const VideoRecorder = () => {
             {!isRecording ? (
               <Button 
                 onClick={startRecording} 
-                disabled={loading || !selectedCamera}
+                disabled={loading || !selectedCamera || cameraPermission === false || error !== null}
                 className="bg-red-600 hover:bg-red-700"
               >
                 <Video className="mr-2 h-4 w-4" />
@@ -377,4 +401,3 @@ const VideoRecorder = () => {
 };
 
 export default VideoRecorder;
-
