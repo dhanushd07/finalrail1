@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address.' }),
@@ -24,6 +26,7 @@ const SignUpForm = () => {
   const { signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [signupError, setSignupError] = React.useState('');
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -35,6 +38,9 @@ const SignUpForm = () => {
   });
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // Clear any previous errors
+    setSignupError('');
+    
     try {
       await signUp(values.email, values.password);
       toast({
@@ -43,13 +49,21 @@ const SignUpForm = () => {
         duration: 5000,
       });
       navigate('/login');
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to create account. Please try again.',
-        variant: 'destructive',
-        duration: 5000,
-      });
+    } catch (error: any) {
+      console.error('Error signing up:', error);
+      
+      // Handle specific error message
+      if (error?.message === 'Email signups are disabled') {
+        setSignupError('Email signups are currently disabled in this application.');
+      } else {
+        setSignupError(error?.message || 'Failed to create account. Please try again later.');
+        toast({
+          title: 'Error',
+          description: 'Failed to create account. Please try again later.',
+          variant: 'destructive',
+          duration: 5000,
+        });
+      }
     }
   };
   
@@ -63,6 +77,14 @@ const SignUpForm = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {signupError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{signupError}</AlertDescription>
+            </Alert>
+          )}
+          
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
