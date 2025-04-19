@@ -1,11 +1,10 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // In a real-world scenario, you would get these values from environment variables
-// Since this is a frontend-only app for now, we'll use placeholders
+// Since this is a frontend-only app for now, we'll use valid placeholders
 // These will be replaced after Supabase integration is set up
-const supabaseUrl = 'YOUR_SUPABASE_URL';
-const supabaseKey = 'YOUR_SUPABASE_KEY';
+const supabaseUrl = 'https://placeholder-project.supabase.co';
+const supabaseKey = 'placeholder-key';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
