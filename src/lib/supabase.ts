@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoRecord } from '@/types';
 
@@ -9,13 +10,28 @@ import type { VideoRecord } from '@/types';
  */
 export const uploadFile = async (bucket: string, path: string, file: File): Promise<string> => {
   try {
+    // First check if the bucket exists
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    
+    if (bucketsError) {
+      console.error('Error listing buckets:', bucketsError);
+      throw new Error(`Failed to list storage buckets: ${bucketsError.message}`);
+    }
+    
+    // Check if our target bucket exists
+    const bucketExists = buckets.some(b => b.name === bucket);
+    if (!bucketExists) {
+      console.error(`Bucket '${bucket}' does not exist. Available buckets:`, buckets.map(b => b.name));
+      throw new Error(`Bucket '${bucket}' not found. Please ensure it exists in your Supabase project.`);
+    }
+    
     const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
       cacheControl: '3600',
       upsert: false
     });
     
     if (error) {
-      console.error('Error uploading file:', error);
+      console.error(`Error uploading file to ${bucket}/${path}:`, error);
       throw error;
     }
     
