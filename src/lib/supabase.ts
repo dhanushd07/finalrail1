@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoRecord } from '@/types';
 
@@ -10,34 +9,13 @@ import type { VideoRecord } from '@/types';
  */
 export const uploadFile = async (bucket: string, path: string, file: File): Promise<string> => {
   try {
-    // First check if the bucket exists
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-    
-    if (bucketsError) {
-      console.error('Error listing buckets:', bucketsError);
-      throw new Error(`Failed to list storage buckets: ${bucketsError.message}`);
-    }
-    
-    // Check if our target bucket exists
-    const bucketExists = buckets.some(b => b.name === bucket || b.id === bucket);
-    if (!bucketExists) {
-      console.error(`Bucket '${bucket}' does not exist. Available buckets:`, buckets.map(b => b.name));
-      throw new Error(`Bucket '${bucket}' not found. Please ensure it exists in your Supabase project.`);
-    }
-    
-    // Attempt to upload the file
     const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
       cacheControl: '3600',
       upsert: false
     });
     
     if (error) {
-      console.error(`Error uploading file to ${bucket}/${path}:`, error);
-      
-      // Provide more specific error messages
-      if (error.message.includes('permission')) {
-        throw new Error(`Permission denied accessing bucket '${bucket}'. Check your access rights.`);
-      }
+      console.error('Error uploading file:', error);
       throw error;
     }
     
