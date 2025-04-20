@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoRecord } from '@/types';
 
@@ -8,14 +7,23 @@ import type { VideoRecord } from '@/types';
  * @param path File path including name
  * @param file File to upload
  */
-export const uploadFile = async (bucket: string, path: string, file: File): Promise<void> => {
-  const { error } = await supabase.storage.from(bucket).upload(path, file, {
-    cacheControl: '3600',
-    upsert: false
-  });
-  
-  if (error) {
-    console.error('Error uploading file:', error);
+export const uploadFile = async (bucket: string, path: string, file: File): Promise<string> => {
+  try {
+    const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+    
+    if (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+    
+    // Get public URL immediately after successful upload
+    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error(`Error in uploadFile to ${bucket}/${path}:`, error);
     throw error;
   }
 };
@@ -30,12 +38,19 @@ export const createVideoRecord = async (videoData: {
   gps_log_url: string;
   status: string;
 }): Promise<void> => {
-  const { error } = await supabase
-    .from('videos')
-    .insert(videoData);
-  
-  if (error) {
-    console.error('Error creating video record:', error);
+  try {
+    const { error } = await supabase
+      .from('videos')
+      .insert(videoData);
+    
+    if (error) {
+      console.error('Error creating video record:', error);
+      throw error;
+    }
+    
+    console.log('Video record created successfully');
+  } catch (error) {
+    console.error('Error in createVideoRecord:', error);
     throw error;
   }
 };

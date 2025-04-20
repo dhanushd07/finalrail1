@@ -205,10 +205,11 @@ const VideoRecorder = () => {
     }
   };
   
-  const uploadToStorage = async (bucket: string, path: string, file: File) => {
+  const uploadToStorage = async (bucket: string, path: string, file: File): Promise<string> => {
     try {
-      await uploadFile(bucket, path, file);
-      console.log(`Successfully uploaded file to ${bucket}/${path}`);
+      const publicUrl = await uploadFile(bucket, path, file);
+      console.log(`Successfully uploaded file to ${bucket}/${path}, URL: ${publicUrl}`);
+      return publicUrl;
     } catch (err) {
       console.error(`Error uploading file to ${bucket}/${path}:`, err);
       throw err;
@@ -253,32 +254,54 @@ const VideoRecorder = () => {
           const videoFile = new File([videoBlob], 'video.webm');
           const gpsLogFile = new File([gpsLogBlob], 'gps_log.csv');
           
+          let videoUrl = '';
+          let gpsLogUrl = '';
+          
           try {
-            await uploadToStorage('videos', videoFileName, videoFile);
-            await uploadToStorage('gps-logs', gpsLogFileName, gpsLogFile);
-          } catch (uploadError) {
+            console.log('Starting file uploads...');
+            videoUrl = await uploadToStorage('videos', videoFileName, videoFile);
+            console.log('Video upload successful');
+            gpsLogUrl = await uploadToStorage('gps-logs', gpsLogFileName, gpsLogFile);
+            console.log('GPS log upload successful');
+          } catch (uploadError: any) {
+            console.error('Upload error details:', uploadError);
+            
             toast({
               title: 'Upload Failed',
-              description: 'There was an error uploading your files. Please try again.',
+              description: `Error: ${uploadError?.message || 'Unknown upload error'}. Please check console for details.`,
               variant: 'destructive',
             });
+            
             throw uploadError;
           }
           
-          await createVideoRecord({
-            user_id: user.id,
-            video_url: videoFileName,
-            gps_log_url: gpsLogFileName,
-            status: 'Queued'
-          });
-          
-          toast({
-            title: 'Recording saved',
-            description: 'Your video has been uploaded and queued for processing.',
-          });
-        } catch (err) {
+          try {
+            await createVideoRecord({
+              user_id: user.id,
+              video_url: videoFileName,
+              gps_log_url: gpsLogFileName,
+              status: 'Queued'
+            });
+            
+            toast({
+              title: 'Recording saved',
+              description: 'Your video has been uploaded and queued for processing.',
+            });
+          } catch (dbError: any) {
+            console.error('Database error details:', dbError);
+            
+            toast({
+              title: 'Database Error',
+              description: `Failed to save record: ${dbError?.message || 'Unknown database error'}`,
+              variant: 'destructive',
+            });
+            
+            throw dbError;
+          }
+        } catch (err: any) {
           console.error('Error saving recording:', err);
-          setError('Failed to save recording');
+          setError(`Failed to save recording: ${err?.message || 'Unknown error'}`);
+          
           toast({
             title: 'Recording Error',
             description: 'Failed to save your recording. Please try again.',
