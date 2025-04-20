@@ -3,7 +3,7 @@ import React from 'react';
 import VideoRecorder from '@/components/recording/VideoRecorder';
 import { Toaster } from '@/components/ui/toaster';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,11 @@ const RecordingPage: React.FC = () => {
   // Check if required storage buckets exist on component mount
   useEffect(() => {
     const checkBuckets = async () => {
+      if (!user) {
+        setIsCheckingBuckets(false);
+        return;
+      }
+      
       try {
         setIsCheckingBuckets(true);
         const { data: buckets, error } = await supabase.storage.listBuckets();
@@ -28,24 +33,40 @@ const RecordingPage: React.FC = () => {
         }
         
         const requiredBuckets = ['videos', 'gps-logs'];
-        const missingBuckets = requiredBuckets.filter(
-          required => !buckets.some(bucket => bucket.name === required)
-        );
         
-        if (missingBuckets.length > 0) {
-          setBucketError(`Required storage buckets are missing: ${missingBuckets.join(', ')}. Please contact an administrator.`);
-        } else {
-          setBucketError(null);
-          // Test access by trying to list files in each bucket
-          for (const bucketName of requiredBuckets) {
-            const { error: accessError } = await supabase.storage.from(bucketName).list(user?.id || 'test-folder');
-            if (accessError) {
-              console.error(`Access error for bucket ${bucketName}:`, accessError);
-              setBucketError(`Cannot access the ${bucketName} bucket. Please check your permissions.`);
-              break;
+        // Even if buckets are found via listBuckets, we need to verify direct access
+        // as policies might prevent the current user from accessing them
+        for (const bucketName of requiredBuckets) {
+          // First check if bucket exists in the list
+          const bucketExists = buckets.some(bucket => bucket.name === bucketName || bucket.id === bucketName);
+          
+          if (!bucketExists) {
+            setBucketError(`Required storage bucket is missing: ${bucketName}. Please contact an administrator.`);
+            return;
+          }
+          
+          // Then verify access by trying to list files in the bucket (this will test policies)
+          const { error: accessError } = await supabase.storage
+            .from(bucketName)
+            .list(user?.id || '');
+            
+          if (accessError) {
+            console.error(`Access error for bucket ${bucketName}:`, accessError);
+            
+            // Check if it's a permissions error
+            if (accessError.message.includes('permission') || accessError.message.includes('access')) {
+              setBucketError(`Permission denied accessing the ${bucketName} bucket. Please check your access rights.`);
+              return;
             }
+            
+            setBucketError(`Cannot access the ${bucketName} bucket. Error: ${accessError.message}`);
+            return;
           }
         }
+        
+        // If we got here, all buckets exist and are accessible
+        setBucketError(null);
+        
       } catch (err) {
         console.error('Error in bucket verification:', err);
         setBucketError('An error occurred while checking storage configuration.');
@@ -55,19 +76,22 @@ const RecordingPage: React.FC = () => {
     };
     
     checkBuckets();
-  }, [user?.id]);
+  }, [user]);
   
   return (
     <div className="container mx-auto py-6">
-      {bucketError && (
+      {isCheckingBuckets ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-4 text-muted-foreground">Verifying storage configuration...</p>
+        </div>
+      ) : bucketError ? (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Storage Configuration Error</AlertTitle>
           <AlertDescription>{bucketError}</AlertDescription>
         </Alert>
-      )}
-      
-      {!bucketError && (
+      ) : (
         <VideoRecorder />
       )}
       <Toaster />
