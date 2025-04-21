@@ -38,10 +38,15 @@ export const extractFrames = async (videoBlob: Blob, fps: number = 1): Promise<B
         // Convert canvas to blob
         canvas.toBlob((blob) => {
           if (blob) {
-            // Use a naming convention that includes the second
-            // In a real implementation, we would name the file like frame_01.jpg, frame_02.jpg, etc.
-            blob.name = `frame_${currentSecond.toString().padStart(2, '0')}.jpg`;
-            frames.push(blob);
+            // Create a named blob with name property
+            const namedBlob = new Blob([blob], { type: blob.type });
+            // Use Object.defineProperty to add name property
+            Object.defineProperty(namedBlob, 'name', {
+              value: `frame_${currentSecond.toString().padStart(2, '0')}.jpg`,
+              writable: false
+            });
+            
+            frames.push(namedBlob);
             
             // Go to next second
             currentSecond++;

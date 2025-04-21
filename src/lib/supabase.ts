@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoRecord } from '@/types';
+import { parseGPSLog, matchFrameToGPS } from './videoProcessing';
 
 /**
  * Upload a file to Supabase storage
