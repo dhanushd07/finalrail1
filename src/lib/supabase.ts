@@ -181,48 +181,32 @@ export const deleteVideoRecord = async (
   videoUrl: string,
   gpsLogUrl: string
 ): Promise<void> => {
+  // Remove DB row
+  const { error } = await supabase.from('videos').delete().eq('id', videoId);
+  if (error) {
+    console.error('Error deleting video record:', error);
+    throw error;
+  }
+  // Remove storage files: video and gps if possible
   try {
-    console.log('Deleting video record:', videoId);
-    
-    // Extract file paths from URLs
+    // Both URLs are public; need to extract the path
     const extractPath = (url: string) => {
       // e.g., https://xyz.supabase.co/storage/v1/object/public/videos/somefile.mp4
       // Path: after "/videos/"
       const arr = url.split('/videos/');
       if (arr.length < 2) return null;
-      return arr[1];
+      return 'videos/' + arr[1];
     };
-    
     const videoPath = extractPath(videoUrl);
     const gpsPath = extractPath(gpsLogUrl);
-    
-    console.log('Paths to delete:', { videoPath, gpsPath });
-    
-    // Delete files from storage first
     if (videoPath) {
-      const { error: videoDeleteError } = await supabase.storage.from('videos').remove([videoPath]);
-      if (videoDeleteError) {
-        console.warn('Could not delete video file:', videoDeleteError);
-      }
+      await supabase.storage.from('videos').remove([videoPath]);
     }
-    
     if (gpsPath) {
-      const { error: gpsDeleteError } = await supabase.storage.from('videos').remove([gpsPath]);
-      if (gpsDeleteError) {
-        console.warn('Could not delete GPS log file:', gpsDeleteError);
-      }
+      await supabase.storage.from('videos').remove([gpsPath]);
     }
-    
-    // Remove DB row
-    const { error } = await supabase.from('videos').delete().eq('id', videoId);
-    if (error) {
-      console.error('Error deleting video record from database:', error);
-      throw error;
-    }
-    
-    console.log('Video record deleted successfully');
-  } catch (error) {
-    console.error(`Error in deleteVideoRecord for videoId ${videoId}:`, error);
-    throw error;
+  } catch (e) {
+    // Not critical, just log it
+    console.warn('Could not delete one or both files in storage:', e);
   }
 };
