@@ -71,43 +71,69 @@ export const parseGPSLog = (gpsLogContent: string): GPSCoordinate[] => {
   const dataLines = lines.slice(1);
   
   return dataLines.map(line => {
-    const [timestamp, latitude, longitude, accuracy] = line.split(',');
+    const parts = line.split(',');
+    
+    // Check if this is the new seconds-based format
+    if (parts.length >= 3 && !isNaN(Number(parts[0]))) {
+      const [second, latitude, longitude, accuracy] = parts;
+      return {
+        second: parseInt(second, 10),
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        accuracy: accuracy ? parseFloat(accuracy) : undefined,
+      };
+    } 
+    // Fallback for older timestamp-based format
+    else if (parts.length >= 3) {
+      const [timestamp, latitude, longitude, accuracy] = parts;
+      return {
+        second: 0, // Default for backward compatibility
+        timestamp,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        accuracy: accuracy ? parseFloat(accuracy) : undefined,
+      };
+    }
+    
+    // Default case if format is unknown
     return {
-      timestamp,
-      latitude: parseFloat(latitude),
-      longitude: parseFloat(longitude),
-      accuracy: accuracy ? parseFloat(accuracy) : undefined,
+      second: 0,
+      latitude: 0,
+      longitude: 0
     };
   });
 };
 
-// Function to match a frame timestamp with the closest GPS coordinate
+// Function to match a frame second with the corresponding GPS coordinate
 export const matchFrameToGPS = (
-  frameTimestamp: string,
-  gpsCoordinates: GPSCoordinate[],
-  toleranceMs: number = 2000 // 2 second tolerance
+  frameSecond: number,
+  gpsCoordinates: GPSCoordinate[]
 ): GPSCoordinate | null => {
   if (gpsCoordinates.length === 0) {
     return null;
   }
   
-  const frameTime = new Date(frameTimestamp).getTime();
+  // First try to find an exact match by second
+  const exactMatch = gpsCoordinates.find(coord => coord.second === frameSecond);
+  if (exactMatch) {
+    return exactMatch;
+  }
   
+  // If no exact match, find the closest second
   let closestCoordinate: GPSCoordinate | null = null;
-  let smallestTimeDiff = Infinity;
+  let smallestSecondDiff = Infinity;
   
   for (const coordinate of gpsCoordinates) {
-    const coordinateTime = new Date(coordinate.timestamp).getTime();
-    const timeDiff = Math.abs(frameTime - coordinateTime);
+    const secondDiff = Math.abs(frameSecond - coordinate.second);
     
-    if (timeDiff < smallestTimeDiff) {
-      smallestTimeDiff = timeDiff;
+    if (secondDiff < smallestSecondDiff) {
+      smallestSecondDiff = secondDiff;
       closestCoordinate = coordinate;
     }
   }
   
-  // Return the coordinate only if it's within the tolerance
-  if (closestCoordinate && smallestTimeDiff <= toleranceMs) {
+  // Return the closest coordinate if it's within a reasonable range (5 seconds)
+  if (closestCoordinate && smallestSecondDiff <= 5) {
     return closestCoordinate;
   }
   

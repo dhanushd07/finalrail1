@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,6 +26,7 @@ const VideoRecorder = () => {
   const chunksRef = useRef<Blob[]>([]);
   const gpsLogRef = useRef<GPSCoordinate[]>([]);
   const gpsWatchIdRef = useRef<number | null>(null);
+  const recordingStartTimeRef = useRef<number | null>(null);
   
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingTime, setRecordingTime] = useState<number>(0);
@@ -119,14 +121,45 @@ const VideoRecorder = () => {
     }
     
     gpsLogRef.current = [];
+    recordingStartTimeRef.current = Date.now();
     
+    // Record initial position at second 0
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        
+        gpsLogRef.current.push({
+          second: 0,
+          latitude,
+          longitude,
+          accuracy
+        });
+        
+        setGpsAccuracy(accuracy);
+        setGpsEnabled(true);
+      },
+      (error) => {
+        console.error('Initial GPS error:', error);
+        setError('Failed to get initial GPS position. Please check permissions.');
+        return false;
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      }
+    );
+    
+    // Then start watching position
     gpsWatchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude, accuracy } = position.coords;
-        const timestamp = new Date().toISOString();
+        
+        // Calculate seconds elapsed since recording started
+        const second = Math.floor((Date.now() - (recordingStartTimeRef.current || Date.now())) / 1000);
         
         gpsLogRef.current.push({
-          timestamp,
+          second,
           latitude,
           longitude,
           accuracy
@@ -159,6 +192,7 @@ const VideoRecorder = () => {
       navigator.geolocation.clearWatch(gpsWatchIdRef.current);
       gpsWatchIdRef.current = null;
     }
+    recordingStartTimeRef.current = null;
   };
   
   const startRecording = async () => {
@@ -236,9 +270,10 @@ const VideoRecorder = () => {
             return;
           }
           
-          const gpsLogHeader = 'timestamp,latitude,longitude,accuracy';
+          // Format GPS log with seconds-based entries
+          const gpsLogHeader = 'second,latitude,longitude,accuracy';
           const gpsLogRows = gpsLogRef.current.map(coord => 
-            `${coord.timestamp},${coord.latitude},${coord.longitude},${coord.accuracy || 0}`
+            `${coord.second},${coord.latitude},${coord.longitude},${coord.accuracy || 0}`
           );
           const gpsLogContent = [gpsLogHeader, ...gpsLogRows].join('\n');
           const gpsLogBlob = new Blob([gpsLogContent], { type: 'text/csv' });
@@ -249,10 +284,10 @@ const VideoRecorder = () => {
           
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const videoFileName = `${user.id}/${timestamp}/video.webm`;
-          const gpsLogFileName = `${user.id}/${timestamp}/gps_log.csv`;
+          const gpsLogFileName = `${user.id}/${timestamp}/gps_by_second.csv`;
           
           const videoFile = new File([videoBlob], 'video.webm');
-          const gpsLogFile = new File([gpsLogBlob], 'gps_log.csv');
+          const gpsLogFile = new File([gpsLogBlob], 'gps_by_second.csv');
           
           let videoUrl = '';
           let gpsLogUrl = '';
@@ -263,12 +298,12 @@ const VideoRecorder = () => {
             console.log('Video upload successful');
             gpsLogUrl = await uploadToStorage('gps-logs', gpsLogFileName, gpsLogFile);
             console.log('GPS log upload successful');
-          } catch (uploadError: any) {
+          } catch (uploadError) {
             console.error('Upload error details:', uploadError);
             
             toast({
               title: 'Upload Failed',
-              description: `Error: ${uploadError?.message || 'Unknown upload error'}. Please check console for details.`,
+              description: 'Error uploading files. Please try again.',
               variant: 'destructive',
             });
             
@@ -287,20 +322,19 @@ const VideoRecorder = () => {
               title: 'Recording saved',
               description: 'Your video has been uploaded and queued for processing.',
             });
-          } catch (dbError: any) {
+          } catch (dbError) {
             console.error('Database error details:', dbError);
             
             toast({
               title: 'Database Error',
-              description: `Failed to save record: ${dbError?.message || 'Unknown database error'}`,
+              description: 'Failed to save record to the database.',
               variant: 'destructive',
             });
             
             throw dbError;
           }
-        } catch (err: any) {
+        } catch (err) {
           console.error('Error saving recording:', err);
-          setError(`Failed to save recording: ${err?.message || 'Unknown error'}`);
           
           toast({
             title: 'Recording Error',

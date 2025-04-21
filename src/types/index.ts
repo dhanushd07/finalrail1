@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   email: string;
@@ -13,8 +14,9 @@ export interface VideoRecord {
 }
 
 export interface GPSCoordinate {
-  timestamp: string;
+  second: number;
   latitude: number;
   longitude: number;
   accuracy?: number;
+  timestamp?: string; // Keep for backward compatibility
 }
