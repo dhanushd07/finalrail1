@@ -1,13 +1,25 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Video, Loader2, CheckCircle, FileVideo } from 'lucide-react';
+import { Loader2, CheckCircle, FileVideo, Trash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { VideoRecord } from '@/types';
-import { getVideoRecords, updateVideoStatus } from '@/lib/supabase';
+import { getVideoRecords, updateVideoStatus, deleteVideoRecord } from '@/lib/supabase';
 import { Link } from 'react-router-dom';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction
+} from "@/components/ui/alert-dialog";
 
 const ProcessingQueue = () => {
   const { user } = useAuth();
@@ -16,29 +28,23 @@ const ProcessingQueue = () => {
   const [queuedVideos, setQueuedVideos] = useState<VideoRecord[]>([]);
   const [completedVideos, setCompletedVideos] = useState<VideoRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  
+  const [videoToDelete, setVideoToDelete] = useState<VideoRecord | null>(null);
+  const [deleting, setDeleting] = useState<boolean>(false);
+
   useEffect(() => {
     if (user) {
       fetchVideos();
-      
-      // Poll for updates every 10 seconds
       const interval = setInterval(fetchVideos, 10000);
-      
       return () => clearInterval(interval);
     }
   }, [user]);
-  
+
   const fetchVideos = async () => {
     if (!user) return;
-    
     try {
       setLoading(true);
-      
-      // Fetch queued videos
       const queued = await getVideoRecords(user.id, 'Queued');
       setQueuedVideos(queued || []);
-      
-      // Fetch completed videos
       const completed = await getVideoRecords(user.id, 'Completed');
       setCompletedVideos(completed || []);
     } catch (error) {
@@ -52,21 +58,16 @@ const ProcessingQueue = () => {
       setLoading(false);
     }
   };
-  
-  // Format date for display
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
-  
-  // Simulate processing completion (for demo purposes)
+
   const simulateProcessingComplete = async (video: VideoRecord) => {
     try {
       await updateVideoStatus(video.id, 'Completed');
-      
-      // Update local state to reflect changes
       setQueuedVideos(prev => prev.filter(v => v.id !== video.id));
       setCompletedVideos(prev => [{ ...video, status: 'Completed' }, ...prev]);
-      
       toast({
         title: 'Processing Complete',
         description: 'Your video has been processed successfully.',
@@ -80,11 +81,35 @@ const ProcessingQueue = () => {
       });
     }
   };
-  
+
+  // Handle video deletion + confirmation dialog
+  const handleDeleteVideo = async () => {
+    if (!videoToDelete) return;
+    setDeleting(true);
+    try {
+      await deleteVideoRecord(videoToDelete.id, videoToDelete.video_url, videoToDelete.gps_log_url);
+      setQueuedVideos(prev => prev.filter(v => v.id !== videoToDelete.id));
+      toast({
+        title: 'Video deleted',
+        description: 'Your video and associated files were deleted.',
+      });
+    } catch (e) {
+      console.error('Error deleting video:', e);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete video.',
+        variant: 'destructive'
+      });
+    } finally {
+      setDeleting(false);
+      setVideoToDelete(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Video Processing</h1>
-      
+
       <Tabs defaultValue="queued">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="queued">
@@ -94,7 +119,7 @@ const ProcessingQueue = () => {
             Completed ({completedVideos.length})
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="queued" className="space-y-4">
           {loading ? (
             <div className="flex justify-center py-10">
@@ -114,14 +139,57 @@ const ProcessingQueue = () => {
           ) : (
             queuedVideos.map((video) => (
               <Card key={video.id}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center">
-                    <Video className="h-5 w-5 mr-2" />
-                    Video {video.id.substring(0, 8)}
-                  </CardTitle>
-                  <CardDescription>
-                    Uploaded: {formatDate(video.created_at)}
-                  </CardDescription>
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center">
+                      <FileVideo className="h-5 w-5 mr-2" />
+                      Video {video.id.substring(0, 8)}
+                    </CardTitle>
+                    <CardDescription>
+                      Uploaded: {formatDate(video.created_at)}
+                    </CardDescription>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setVideoToDelete(video);
+                        }}
+                        title="Delete video"
+                      >
+                        <Trash className="h-5 w-5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this video?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove this video and its files.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel
+                          disabled={deleting}
+                          onClick={() => setVideoToDelete(null)}
+                        >
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={deleting}
+                          onClick={handleDeleteVideo}
+                        >
+                          {deleting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Delete"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center">
@@ -135,11 +203,9 @@ const ProcessingQueue = () => {
                   <div className="text-xs text-muted-foreground">
                     This may take a few minutes
                   </div>
-                  
-                  {/* TODO: Remove this button in production - it's just for demo */}
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="ml-auto"
                     onClick={() => simulateProcessingComplete(video)}
                   >
@@ -150,7 +216,7 @@ const ProcessingQueue = () => {
             ))
           )}
         </TabsContent>
-        
+
         <TabsContent value="completed" className="space-y-4">
           {loading ? (
             <div className="flex justify-center py-10">
@@ -172,7 +238,7 @@ const ProcessingQueue = () => {
               <Card key={video.id}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg flex items-center">
-                    <Video className="h-5 w-5 mr-2" />
+                    <FileVideo className="h-5 w-5 mr-2" />
                     Video {video.id.substring(0, 8)}
                   </CardTitle>
                   <CardDescription>

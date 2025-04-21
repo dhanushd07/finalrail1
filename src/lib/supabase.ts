@@ -169,3 +169,44 @@ export const getPublicUrl = (bucket: string, path: string): string => {
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
 };
+
+/**
+ * Delete a video record and its files in Supabase Storage.
+ * @param videoId Video ID
+ * @param videoUrl URL to the video file in Supabase Storage
+ * @param gpsLogUrl URL to the gps log file in Supabase Storage
+ */
+export const deleteVideoRecord = async (
+  videoId: string,
+  videoUrl: string,
+  gpsLogUrl: string
+): Promise<void> => {
+  // Remove DB row
+  const { error } = await supabase.from('videos').delete().eq('id', videoId);
+  if (error) {
+    console.error('Error deleting video record:', error);
+    throw error;
+  }
+  // Remove storage files: video and gps if possible
+  try {
+    // Both URLs are public; need to extract the path
+    const extractPath = (url: string) => {
+      // e.g., https://xyz.supabase.co/storage/v1/object/public/videos/somefile.mp4
+      // Path: after "/videos/"
+      const arr = url.split('/videos/');
+      if (arr.length < 2) return null;
+      return 'videos/' + arr[1];
+    };
+    const videoPath = extractPath(videoUrl);
+    const gpsPath = extractPath(gpsLogUrl);
+    if (videoPath) {
+      await supabase.storage.from('videos').remove([videoPath]);
+    }
+    if (gpsPath) {
+      await supabase.storage.from('videos').remove([gpsPath]);
+    }
+  } catch (e) {
+    // Not critical, just log it
+    console.warn('Could not delete one or both files in storage:', e);
+  }
+};
