@@ -1,4 +1,3 @@
-
 import { GPSCoordinate } from '@/types';
 
 // Function to extract frames from a video
@@ -284,4 +283,21 @@ export const processVideo = async (videoId: string): Promise<void> => {
   
   // This would normally be implemented in a backend service
   return Promise.resolve();
+};
+
+// Export normalizeGPSLog for possible future use in other modules
+export const normalizeGPSLog = (gpsCoordinates: any[], totalSeconds: number) => {
+  const gpsBySecond: { [k: number]: any } = {};
+  gpsCoordinates.forEach((coord) => {
+    gpsBySecond[Number(coord.second)] = coord;
+  });
+  let lastCoord = gpsCoordinates[0];
+  const normalized: any[] = [];
+  for (let sec = 0; sec < totalSeconds; sec++) {
+    if (gpsBySecond[sec]) {
+      lastCoord = gpsBySecond[sec];
+    }
+    normalized.push({ ...lastCoord, second: sec });
+  }
+  return normalized;
 };

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoRecord } from '@/types';
 import { parseGPSLog, matchFrameToGPS } from './videoProcessing';
@@ -255,10 +254,62 @@ export const downloadFile = async (bucket: string, path: string): Promise<Blob> 
   return data;
 };
 
+import { extractFrames } from './videoProcessing'; // already imported
+
+// New helper: upload Frames to Supabase Storage
+export const uploadFrames = async (videoId: string, frames: Blob[]): Promise<string[]> => {
+  // Ensure 'frames' bucket exists in Supabase project dashboard.
+  const uploadedUrls: string[] = [];
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i];
+    // Each frame should have a .name property, fallback for environments that might not preserve it
+    const frameName = (frame as any).name || `frame_${i.toString().padStart(2, '0')}.jpg`;
+    const framePath = `${videoId}/${frameName}`;
+    try {
+      const { data, error } = await supabase.storage.from('frames').upload(framePath, frame, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+      if (error) {
+        console.error('Error uploading frame:', error);
+        continue;
+      }
+      // get public URL
+      const { data: urlData } = supabase.storage.from('frames').getPublicUrl(framePath);
+      if (urlData && urlData.publicUrl) {
+        uploadedUrls.push(urlData.publicUrl);
+      }
+    } catch (err) {
+      console.error('Error uploading frame:', err);
+    }
+  }
+  return uploadedUrls;
+};
+
+// Helper: fills in missing GPS seconds using forward-fill
+const normalizeGPSLog = (gpsCoordinates: any[], totalSeconds: number) => {
+  // Prepare a mapping from second -> GPS object
+  const gpsBySecond: { [k: number]: any } = {};
+  gpsCoordinates.forEach((coord) => {
+    gpsBySecond[Number(coord.second)] = coord;
+  });
+  let lastCoord = gpsCoordinates[0];
+  const normalized: any[] = [];
+  for (let sec = 0; sec < totalSeconds; sec++) {
+    if (gpsBySecond[sec]) {
+      lastCoord = gpsBySecond[sec];
+    }
+    normalized.push({ ...lastCoord, second: sec });
+  }
+  return normalized;
+};
+
 /**
  * Process a video and save detection results
- * @param videoId Video ID
- * @param userId User ID
+ * Updated to: 
+ * - Extract frames at 1 fps, upload to 'frames' bucket
+ * - Normalize GPS log to one row per second, filling missing values with previous as needed
+ * - For each frame, match its second with GPS data and run detection
  */
 export const processVideoFrames = async (videoId: string, userId: string): Promise<boolean> => {
   try {
@@ -268,55 +319,84 @@ export const processVideoFrames = async (videoId: string, userId: string): Promi
       console.error('Video not found');
       return false;
     }
-    
-    // 2. Download GPS log file
+
+    // 2. Download original video file
+    const videoPath = video.video_url.split('/videos/')[1];
+    if (!videoPath) {
+      console.error('Invalid video URL');
+      return false;
+    }
+    const videoBlob = await downloadFile('videos', videoPath);
+
+    // 3. Download and parse GPS log
     const gpsLogPath = video.gps_log_url.split('/videos/')[1];
     if (!gpsLogPath) {
       console.error('Invalid GPS log URL');
       return false;
     }
-    
     const gpsLogBlob = await downloadFile('videos', gpsLogPath);
     const gpsLogText = await gpsLogBlob.text();
-    const gpsCoordinates = parseGPSLog(gpsLogText);
-    
-    if (gpsCoordinates.length === 0) {
+    const rawGPS = parseGPSLog(gpsLogText);
+    if (rawGPS.length === 0) {
       console.error('No GPS coordinates found');
       return false;
     }
-    
-    // 3. For demonstration purposes, we'll simulate processing by creating mock data
-    // In a real implementation, we would extract frames from the video and process them
-    
-    for (let second = 0; second < 10; second++) {
-      // Get GPS coordinate for this second
-      const gpsCoord = matchFrameToGPS(second, gpsCoordinates);
-      
-      if (gpsCoord) {
-        // Simulate crack detection result (alternate between crack detected and not detected)
-        const hasCrack = second % 3 === 0;
-        
-        // Create a timestamp for this detection (for database compatibility)
-        const timestamp = new Date();
-        timestamp.setSeconds(timestamp.getSeconds() + second);
-        
-        // Save the detection data
-        await saveDetectionData({
-          user_id: userId,
-          video_id: videoId,
-          image_url: `https://placeholder.example.com/frame_${second.toString().padStart(2, '0')}.jpg`,
-          timestamp: timestamp.toISOString(),
-          latitude: gpsCoord.latitude,
-          longitude: gpsCoord.longitude,
-          detection_json: hasCrack ? { predictions: [{ class: 'crack', confidence: 0.95 }] } : null,
-          has_crack: hasCrack
-        });
-      }
+
+    // 4. Extract frames at 1 fps
+    const frames = await extractFrames(videoBlob, 1);
+    if (!frames.length) {
+      console.error('No frames extracted');
+      return false;
     }
-    
-    // 4. Update video status to "Completed"
+
+    // 5. Upload frames to 'frames' bucket (sync index to second)
+    const uploadedUrls = await uploadFrames(videoId, frames);
+
+    // 6. Normalize GPS data to match number of frames
+    const normalizedGPS = normalizeGPSLog(rawGPS, frames.length);
+
+    // 7. For each frame, run detection, save result
+    for (let i = 0; i < frames.length; i++) {
+      const frameBlob = frames[i];
+      const frameSecond = i;
+      const gpsCoord = normalizedGPS[i];
+
+      // Run detection API
+      let detectionResult;
+      let hasCrack = false;
+      let detection_json = null;
+      try {
+        detectionResult = await import('./videoProcessing').then(mod => mod.detectCracks(frameBlob));
+        hasCrack = detectionResult.hasCrack;
+        detection_json = detectionResult.predictions && detectionResult.predictions.length > 0
+          ? { predictions: detectionResult.predictions }
+          : null;
+      } catch (err) {
+        console.error('Error running crack detection:', err);
+      }
+
+      // Compose timestamp (assuming video created_at plus frameSecond seconds)
+      let timestampStr = video.created_at;
+      if (video.created_at) {
+        const dt = new Date(video.created_at);
+        dt.setSeconds(dt.getSeconds() + frameSecond);
+        timestampStr = dt.toISOString();
+      }
+
+      await saveDetectionData({
+        user_id: userId,
+        video_id: videoId,
+        image_url: uploadedUrls[i] || '',
+        timestamp: timestampStr,
+        latitude: gpsCoord?.latitude,
+        longitude: gpsCoord?.longitude,
+        detection_json,
+        has_crack: !!hasCrack,
+      });
+    }
+
+    // 8. Update video status to "Completed"
     await updateVideoStatus(videoId, 'Completed');
-    
     return true;
   } catch (error) {
     console.error('Error processing video frames:', error);
