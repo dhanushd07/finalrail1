@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoRecord } from '@/types';
 
@@ -213,6 +214,16 @@ export const deleteVideoRecord = async (
       }
     }
     
+    // Also delete any associated crack_data records
+    const { error: crackDeleteError } = await supabase
+      .from('crack_data')
+      .delete()
+      .eq('video_id', videoId);
+    
+    if (crackDeleteError) {
+      console.warn('Could not delete associated crack data:', crackDeleteError);
+    }
+    
     // Remove DB row
     const { error } = await supabase.from('videos').delete().eq('id', videoId);
     if (error) {
@@ -224,5 +235,90 @@ export const deleteVideoRecord = async (
   } catch (error) {
     console.error(`Error in deleteVideoRecord for videoId ${videoId}:`, error);
     throw error;
+  }
+};
+
+/**
+ * Download a file from Supabase storage
+ * @param bucket Storage bucket name
+ * @param path File path
+ */
+export const downloadFile = async (bucket: string, path: string): Promise<Blob> => {
+  const { data, error } = await supabase.storage.from(bucket).download(path);
+  
+  if (error) {
+    console.error('Error downloading file:', error);
+    throw error;
+  }
+  
+  return data;
+};
+
+/**
+ * Process a video and save detection results
+ * @param videoId Video ID
+ * @param userId User ID
+ */
+export const processVideoFrames = async (videoId: string, userId: string): Promise<boolean> => {
+  try {
+    // 1. Get the video record
+    const video = await getVideoById(videoId);
+    if (!video) {
+      console.error('Video not found');
+      return false;
+    }
+    
+    // 2. Download GPS log file
+    const gpsLogPath = video.gps_log_url.split('/videos/')[1];
+    if (!gpsLogPath) {
+      console.error('Invalid GPS log URL');
+      return false;
+    }
+    
+    const gpsLogBlob = await downloadFile('videos', gpsLogPath);
+    const gpsLogText = await gpsLogBlob.text();
+    const gpsCoordinates = parseGPSLog(gpsLogText);
+    
+    if (gpsCoordinates.length === 0) {
+      console.error('No GPS coordinates found');
+      return false;
+    }
+    
+    // 3. For demonstration purposes, we'll simulate processing by creating mock data
+    // In a real implementation, we would extract frames from the video and process them
+    
+    for (let second = 0; second < 10; second++) {
+      // Get GPS coordinate for this second
+      const gpsCoord = matchFrameToGPS(second, gpsCoordinates);
+      
+      if (gpsCoord) {
+        // Simulate crack detection result (alternate between crack detected and not detected)
+        const hasCrack = second % 3 === 0;
+        
+        // Create a timestamp for this detection (for database compatibility)
+        const timestamp = new Date();
+        timestamp.setSeconds(timestamp.getSeconds() + second);
+        
+        // Save the detection data
+        await saveDetectionData({
+          user_id: userId,
+          video_id: videoId,
+          image_url: `https://placeholder.example.com/frame_${second.toString().padStart(2, '0')}.jpg`,
+          timestamp: timestamp.toISOString(),
+          latitude: gpsCoord.latitude,
+          longitude: gpsCoord.longitude,
+          detection_json: hasCrack ? { predictions: [{ class: 'crack', confidence: 0.95 }] } : null,
+          has_crack: hasCrack
+        });
+      }
+    }
+    
+    // 4. Update video status to "Completed"
+    await updateVideoStatus(videoId, 'Completed');
+    
+    return true;
+  } catch (error) {
+    console.error('Error processing video frames:', error);
+    return false;
   }
 };
