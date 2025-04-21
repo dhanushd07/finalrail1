@@ -30,6 +30,7 @@ const ProcessingQueue = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [videoToDelete, setVideoToDelete] = useState<VideoRecord | null>(null);
   const [deleting, setDeleting] = useState<boolean>(false);
+  const [alertOpen, setAlertOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (user) {
@@ -85,10 +86,22 @@ const ProcessingQueue = () => {
   // Handle video deletion + confirmation dialog
   const handleDeleteVideo = async () => {
     if (!videoToDelete) return;
+    
     setDeleting(true);
     try {
-      await deleteVideoRecord(videoToDelete.id, videoToDelete.video_url, videoToDelete.gps_log_url);
-      setQueuedVideos(prev => prev.filter(v => v.id !== videoToDelete.id));
+      await deleteVideoRecord(
+        videoToDelete.id, 
+        videoToDelete.video_url, 
+        videoToDelete.gps_log_url
+      );
+      
+      // Update local state to remove the deleted video
+      if (videoToDelete.status === 'Queued') {
+        setQueuedVideos(prev => prev.filter(v => v.id !== videoToDelete.id));
+      } else if (videoToDelete.status === 'Completed') {
+        setCompletedVideos(prev => prev.filter(v => v.id !== videoToDelete.id));
+      }
+      
       toast({
         title: 'Video deleted',
         description: 'Your video and associated files were deleted.',
@@ -103,6 +116,7 @@ const ProcessingQueue = () => {
     } finally {
       setDeleting(false);
       setVideoToDelete(null);
+      setAlertOpen(false);
     }
   };
 
@@ -149,7 +163,10 @@ const ProcessingQueue = () => {
                       Uploaded: {formatDate(video.created_at)}
                     </CardDescription>
                   </div>
-                  <AlertDialog>
+                  <AlertDialog open={alertOpen && videoToDelete?.id === video.id} onOpenChange={(open) => {
+                    if (!open) setVideoToDelete(null);
+                    setAlertOpen(open);
+                  }}>
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="ghost"
@@ -157,6 +174,7 @@ const ProcessingQueue = () => {
                         onClick={(e) => {
                           e.stopPropagation();
                           setVideoToDelete(video);
+                          setAlertOpen(true);
                         }}
                         title="Delete video"
                       >
@@ -173,13 +191,19 @@ const ProcessingQueue = () => {
                       <AlertDialogFooter>
                         <AlertDialogCancel
                           disabled={deleting}
-                          onClick={() => setVideoToDelete(null)}
+                          onClick={() => {
+                            setVideoToDelete(null);
+                            setAlertOpen(false);
+                          }}
                         >
                           Cancel
                         </AlertDialogCancel>
                         <AlertDialogAction
                           disabled={deleting}
-                          onClick={handleDeleteVideo}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleDeleteVideo();
+                          }}
                         >
                           {deleting ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -236,14 +260,67 @@ const ProcessingQueue = () => {
           ) : (
             completedVideos.map((video) => (
               <Card key={video.id}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center">
-                    <FileVideo className="h-5 w-5 mr-2" />
-                    Video {video.id.substring(0, 8)}
-                  </CardTitle>
-                  <CardDescription>
-                    Processed: {formatDate(video.created_at)}
-                  </CardDescription>
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center">
+                      <FileVideo className="h-5 w-5 mr-2" />
+                      Video {video.id.substring(0, 8)}
+                    </CardTitle>
+                    <CardDescription>
+                      Processed: {formatDate(video.created_at)}
+                    </CardDescription>
+                  </div>
+                  <AlertDialog open={alertOpen && videoToDelete?.id === video.id} onOpenChange={(open) => {
+                    if (!open) setVideoToDelete(null);
+                    setAlertOpen(open);
+                  }}>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setVideoToDelete(video);
+                          setAlertOpen(true);
+                        }}
+                        title="Delete video"
+                      >
+                        <Trash className="h-5 w-5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this video?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove this video and its files.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel
+                          disabled={deleting}
+                          onClick={() => {
+                            setVideoToDelete(null);
+                            setAlertOpen(false);
+                          }}
+                        >
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={deleting}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleDeleteVideo();
+                          }}
+                        >
+                          {deleting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Delete"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center">
