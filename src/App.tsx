@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,31 +25,29 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route element={<RouteGuard authRequired={false} />}>
-            <Route path="/login" element={<SignInPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
-          </Route>
-
-          {/* Routes with AuthProvider */}
-          <Route element={
-            <AuthProvider>
-              <Layout />
-            </AuthProvider>
-          }>
-            <Route path="/" element={<Index />} />
-            
-            <Route element={<RouteGuard authRequired={true} />}>
-              <Route path="/record" element={<RecordingPage />} />
-              <Route path="/process" element={<ProcessingPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/model-test" element={<ModelTestPage />} />
+        <AuthProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route element={<RouteGuard authRequired={false} />}>
+              <Route path="/login" element={<SignInPage />} />
+              <Route path="/signup" element={<SignUpPage />} />
             </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
+
+            {/* Protected routes */}
+            <Route element={<Layout />}>
+              <Route path="/" element={<Index />} />
+              
+              <Route element={<RouteGuard authRequired={true} />}>
+                <Route path="/record" element={<RecordingPage />} />
+                <Route path="/process" element={<ProcessingPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/model-test" element={<ModelTestPage />} />
+              </Route>
+              
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

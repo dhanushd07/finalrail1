@@ -1,70 +1,23 @@
+
 import { GPSCoordinate } from '@/types';
 
 // Function to extract frames from a video
 export const extractFrames = async (videoBlob: Blob, fps: number = 1): Promise<Blob[]> => {
-  console.log('Extracting frames from video at', fps, 'fps');
+  // This is a client-side placeholder for frame extraction
+  // In a real app, this would be done in a backend service using ffmpeg
+  // For now, we'll simulate this process for demo purposes
   
-  // For now, we'll simulate frame extraction on the client-side
-  // In a real application, this would be done server-side with ffmpeg
+  console.log('Extracting frames from video at', fps, 'fps');
   return new Promise((resolve) => {
-    const video = document.createElement('video');
-    video.autoplay = false;
-    video.muted = true;
-    video.controls = false;
-    
-    // Create object URL for the video blob
-    const videoUrl = URL.createObjectURL(videoBlob);
-    video.src = videoUrl;
-    
-    // Array to store extracted frame blobs
-    const frames: Blob[] = [];
-    let currentSecond = 0;
-    
-    video.onloadedmetadata = () => {
-      video.currentTime = currentSecond;
-    };
-    
-    video.addEventListener('seeked', async () => {
-      // Extract current frame
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Convert canvas to blob
-        canvas.toBlob((blob) => {
-          if (blob) {
-            // Create a named blob with name property
-            const namedBlob = new Blob([blob], { type: blob.type });
-            // Use Object.defineProperty to add name property
-            Object.defineProperty(namedBlob, 'name', {
-              value: `frame_${currentSecond.toString().padStart(2, '0')}.jpg`,
-              writable: false
-            });
-            
-            frames.push(namedBlob);
-            
-            // Go to next second
-            currentSecond++;
-            
-            // Check if we've reached the end of the video
-            if (currentSecond < Math.floor(video.duration)) {
-              video.currentTime = currentSecond;
-            } else {
-              // Clean up
-              URL.revokeObjectURL(videoUrl);
-              resolve(frames);
-            }
-          }
-        }, 'image/jpeg', 0.95);
-      }
-    });
-    
-    // Start loading the video
-    video.load();
+    // Simulate processing time
+    setTimeout(() => {
+      // Return mock frame blobs
+      resolve([
+        new Blob(['frame1'], { type: 'image/jpeg' }),
+        new Blob(['frame2'], { type: 'image/jpeg' }),
+        new Blob(['frame3'], { type: 'image/jpeg' }),
+      ]);
+    }, 2000);
   });
 };
 
@@ -187,23 +140,6 @@ export const matchFrameToGPS = (
   return null;
 };
 
-// Function to get the second value from a frame filename
-export const getSecondFromFrameFilename = (filename: string): number => {
-  // Extract the second from a frame filename like frame_01.jpg
-  const match = filename.match(/frame_(\d+)\.jpg/);
-  if (match && match[1]) {
-    return parseInt(match[1], 10);
-  }
-  
-  // Fallback: Try to extract a number from anywhere in the filename
-  const numberMatch = filename.match(/(\d+)/);
-  if (numberMatch && numberMatch[1]) {
-    return parseInt(numberMatch[1], 10);
-  }
-  
-  return 0; // Default if no second value can be extracted
-};
-
 // Function to draw bounding boxes on an image based on detection results
 export const drawBoundingBoxes = (
   imageUrl: string,
@@ -265,39 +201,4 @@ export const drawBoundingBoxes = (
     
     img.src = imageUrl;
   });
-};
-
-// Process video in the background
-export const processVideo = async (videoId: string): Promise<void> => {
-  // This is a placeholder for the actual video processing logic
-  console.log(`Processing video: ${videoId}`);
-  // Actual implementation would:
-  // 1. Download the video from storage
-  // 2. Extract frames at 1fps
-  // 3. For each frame:
-  //   a. Detect cracks using the API
-  //   b. Extract second from filename
-  //   c. Match with GPS coordinate
-  //   d. Save detection data to database
-  // 4. Update video status to "Completed"
-  
-  // This would normally be implemented in a backend service
-  return Promise.resolve();
-};
-
-// Export normalizeGPSLog for possible future use in other modules
-export const normalizeGPSLog = (gpsCoordinates: any[], totalSeconds: number) => {
-  const gpsBySecond: { [k: number]: any } = {};
-  gpsCoordinates.forEach((coord) => {
-    gpsBySecond[Number(coord.second)] = coord;
-  });
-  let lastCoord = gpsCoordinates[0];
-  const normalized: any[] = [];
-  for (let sec = 0; sec < totalSeconds; sec++) {
-    if (gpsBySecond[sec]) {
-      lastCoord = gpsBySecond[sec];
-    }
-    normalized.push({ ...lastCoord, second: sec });
-  }
-  return normalized;
 };

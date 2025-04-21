@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle, FileVideo, Trash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { VideoRecord } from '@/types';
-import { getVideoRecords, updateVideoStatus, deleteVideoRecord, processVideoFrames } from '@/lib/supabase';
+import { getVideoRecords, updateVideoStatus, deleteVideoRecord } from '@/lib/supabase';
 import { Link } from 'react-router-dom';
 import {
   AlertDialog,
@@ -31,7 +31,6 @@ const ProcessingQueue = () => {
   const [videoToDelete, setVideoToDelete] = useState<VideoRecord | null>(null);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
-  const [processing, setProcessing] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     if (user) {
@@ -66,33 +65,21 @@ const ProcessingQueue = () => {
   };
 
   const simulateProcessingComplete = async (video: VideoRecord) => {
-    if (!user) return;
-    
     try {
-      // Mark as processing
-      setProcessing(prev => ({ ...prev, [video.id]: true }));
-      
-      // Process the video frames and generate detection data
-      await processVideoFrames(video.id, user.id);
-      
-      // Update local state
+      await updateVideoStatus(video.id, 'Completed');
       setQueuedVideos(prev => prev.filter(v => v.id !== video.id));
-      const updatedVideo = { ...video, status: 'Completed' };
-      setCompletedVideos(prev => [updatedVideo, ...prev]);
-      
+      setCompletedVideos(prev => [{ ...video, status: 'Completed' }, ...prev]);
       toast({
         title: 'Processing Complete',
         description: 'Your video has been processed successfully.',
       });
     } catch (error) {
-      console.error('Error processing video:', error);
+      console.error('Error updating video status:', error);
       toast({
         title: 'Error',
-        description: 'Failed to process video',
+        description: 'Failed to update video status',
         variant: 'destructive',
       });
-    } finally {
-      setProcessing(prev => ({ ...prev, [video.id]: false }));
     }
   };
 
@@ -245,16 +232,8 @@ const ProcessingQueue = () => {
                     size="sm"
                     className="ml-auto"
                     onClick={() => simulateProcessingComplete(video)}
-                    disabled={processing[video.id]}
                   >
-                    {processing[video.id] ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Processing...
-                      </>
-                    ) : (
-                      'Simulate Completion'
-                    )}
+                    Simulate Completion
                   </Button>
                 </CardFooter>
               </Card>
