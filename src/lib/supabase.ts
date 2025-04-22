@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoRecord } from '@/types';
 
@@ -9,6 +10,7 @@ import type { VideoRecord } from '@/types';
  */
 export const uploadFile = async (bucket: string, path: string, file: File): Promise<string> => {
   try {
+    console.log(`Uploading file to ${bucket}/${path}`);
     const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
       cacheControl: '3600',
       upsert: false
@@ -21,6 +23,7 @@ export const uploadFile = async (bucket: string, path: string, file: File): Prom
     
     // Get public URL immediately after successful upload
     const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+    console.log(`File uploaded successfully, public URL: ${urlData.publicUrl}`);
     return urlData.publicUrl;
   } catch (error) {
     console.error(`Error in uploadFile to ${bucket}/${path}:`, error);
@@ -39,6 +42,7 @@ export const createVideoRecord = async (videoData: {
   status: string;
 }): Promise<void> => {
   try {
+    console.log('Creating video record with data:', videoData);
     const { error } = await supabase
       .from('videos')
       .insert(videoData);
@@ -61,24 +65,33 @@ export const createVideoRecord = async (videoData: {
  * @param status Video status (optional)
  */
 export const getVideoRecords = async (userId: string, status?: string): Promise<VideoRecord[]> => {
-  let query = supabase
-    .from('videos')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  
-  if (status) {
-    query = query.eq('status', status);
+  try {
+    console.log(`Getting video records for user ${userId}${status ? ` with status: ${status}` : ''}`);
+    
+    let query = supabase
+      .from('videos')
+      .select('*')
+      .eq('user_id', userId);
+    
+    if (status) {
+      query = query.eq('status', status);
+    }
+    
+    query = query.order('created_at', { ascending: false });
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Error fetching video records:', error);
+      throw error;
+    }
+    
+    console.log(`Retrieved ${data?.length || 0} video records`);
+    return data as VideoRecord[] || [];
+  } catch (error) {
+    console.error('Error in getVideoRecords:', error);
+    return [];
   }
-  
-  const { data, error } = await query;
-  
-  if (error) {
-    console.error('Error fetching video records:', error);
-    throw error;
-  }
-  
-  return data as VideoRecord[];
 };
 
 /**
@@ -87,13 +100,21 @@ export const getVideoRecords = async (userId: string, status?: string): Promise<
  * @param status New status
  */
 export const updateVideoStatus = async (videoId: string, status: string): Promise<void> => {
-  const { error } = await supabase
-    .from('videos')
-    .update({ status })
-    .eq('id', videoId);
-  
-  if (error) {
-    console.error('Error updating video status:', error);
+  try {
+    console.log(`Updating video ${videoId} status to ${status}`);
+    const { error } = await supabase
+      .from('videos')
+      .update({ status })
+      .eq('id', videoId);
+    
+    if (error) {
+      console.error('Error updating video status:', error);
+      throw error;
+    }
+    
+    console.log('Video status updated successfully');
+  } catch (error) {
+    console.error('Error in updateVideoStatus:', error);
     throw error;
   }
 };
@@ -103,18 +124,25 @@ export const updateVideoStatus = async (videoId: string, status: string): Promis
  * @param videoId Video ID
  */
 export const getVideoById = async (videoId: string): Promise<VideoRecord | null> => {
-  const { data, error } = await supabase
-    .from('videos')
-    .select('*')
-    .eq('id', videoId)
-    .single();
-  
-  if (error) {
-    console.error('Error fetching video by ID:', error);
+  try {
+    console.log(`Getting video with ID ${videoId}`);
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('id', videoId)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching video by ID:', error);
+      return null;
+    }
+    
+    console.log('Retrieved video record:', data);
+    return data as VideoRecord;
+  } catch (error) {
+    console.error('Error in getVideoById:', error);
     return null;
   }
-  
-  return data as VideoRecord;
 };
 
 /**
@@ -122,18 +150,25 @@ export const getVideoById = async (videoId: string): Promise<VideoRecord | null>
  * @param videoId Video ID
  */
 export const getDetectionData = async (videoId: string) => {
-  const { data, error } = await supabase
-    .from('crack_data')
-    .select('*')
-    .eq('video_id', videoId)
-    .order('timestamp', { ascending: true });
-  
-  if (error) {
-    console.error('Error fetching detection data:', error);
-    throw error;
+  try {
+    console.log(`Getting detection data for video ${videoId}`);
+    const { data, error } = await supabase
+      .from('crack_data')
+      .select('*')
+      .eq('video_id', videoId)
+      .order('timestamp', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching detection data:', error);
+      throw error;
+    }
+    
+    console.log(`Retrieved ${data?.length || 0} detection records`);
+    return data;
+  } catch (error) {
+    console.error('Error in getDetectionData:', error);
+    return [];
   }
-  
-  return data;
 };
 
 /**
@@ -150,12 +185,20 @@ export const saveDetectionData = async (detectionData: {
   detection_json?: any;
   has_crack: boolean;
 }) => {
-  const { error } = await supabase
-    .from('crack_data')
-    .insert(detectionData);
-  
-  if (error) {
-    console.error('Error saving detection data:', error);
+  try {
+    console.log('Saving detection data:', detectionData);
+    const { error } = await supabase
+      .from('crack_data')
+      .insert(detectionData);
+    
+    if (error) {
+      console.error('Error saving detection data:', error);
+      throw error;
+    }
+    
+    console.log('Detection data saved successfully');
+  } catch (error) {
+    console.error('Error in saveDetectionData:', error);
     throw error;
   }
 };
@@ -187,29 +230,49 @@ export const deleteVideoRecord = async (
     // Extract file paths from URLs
     const extractPath = (url: string) => {
       // e.g., https://xyz.supabase.co/storage/v1/object/public/videos/somefile.mp4
-      // Path: after "/videos/"
-      const arr = url.split('/videos/');
-      if (arr.length < 2) return null;
-      return arr[1];
+      // Path: after "/videos/" or "/gps-logs/"
+      try {
+        const bucketRegex = /\/public\/([^\/]+)\/(.+)$/;
+        const match = url.match(bucketRegex);
+        if (match && match.length >= 3) {
+          const bucket = match[1];
+          const path = match[2];
+          return { bucket, path };
+        }
+        return null;
+      } catch (error) {
+        console.error('Failed to extract path from URL:', url, error);
+        return null;
+      }
     };
     
-    const videoPath = extractPath(videoUrl);
-    const gpsPath = extractPath(gpsLogUrl);
+    const videoPathInfo = extractPath(videoUrl);
+    const gpsPathInfo = extractPath(gpsLogUrl);
     
-    console.log('Paths to delete:', { videoPath, gpsPath });
+    console.log('Extracted path info:', { videoPathInfo, gpsPathInfo });
     
     // Delete files from storage first
-    if (videoPath) {
-      const { error: videoDeleteError } = await supabase.storage.from('videos').remove([videoPath]);
+    if (videoPathInfo) {
+      const { error: videoDeleteError } = await supabase.storage
+        .from(videoPathInfo.bucket)
+        .remove([videoPathInfo.path]);
+        
       if (videoDeleteError) {
         console.warn('Could not delete video file:', videoDeleteError);
+      } else {
+        console.log('Video file deleted successfully');
       }
     }
     
-    if (gpsPath) {
-      const { error: gpsDeleteError } = await supabase.storage.from('videos').remove([gpsPath]);
+    if (gpsPathInfo) {
+      const { error: gpsDeleteError } = await supabase.storage
+        .from(gpsPathInfo.bucket)
+        .remove([gpsPathInfo.path]);
+        
       if (gpsDeleteError) {
         console.warn('Could not delete GPS log file:', gpsDeleteError);
+      } else {
+        console.log('GPS log file deleted successfully');
       }
     }
     
@@ -220,7 +283,7 @@ export const deleteVideoRecord = async (
       throw error;
     }
     
-    console.log('Video record deleted successfully');
+    console.log('Video record deleted successfully from database');
   } catch (error) {
     console.error(`Error in deleteVideoRecord for videoId ${videoId}:`, error);
     throw error;

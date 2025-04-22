@@ -1,23 +1,85 @@
-
 import { GPSCoordinate } from '@/types';
 
 // Function to extract frames from a video
 export const extractFrames = async (videoBlob: Blob, fps: number = 1): Promise<Blob[]> => {
-  // This is a client-side placeholder for frame extraction
-  // In a real app, this would be done in a backend service using ffmpeg
-  // For now, we'll simulate this process for demo purposes
-  
   console.log('Extracting frames from video at', fps, 'fps');
-  return new Promise((resolve) => {
-    // Simulate processing time
-    setTimeout(() => {
-      // Return mock frame blobs
-      resolve([
-        new Blob(['frame1'], { type: 'image/jpeg' }),
-        new Blob(['frame2'], { type: 'image/jpeg' }),
-        new Blob(['frame3'], { type: 'image/jpeg' }),
-      ]);
-    }, 2000);
+  
+  return new Promise((resolve, reject) => {
+    try {
+      const video = document.createElement('video');
+      video.autoplay = false;
+      video.muted = true;
+      video.playsInline = true;
+      
+      // Create object URL for the video blob
+      const videoUrl = URL.createObjectURL(videoBlob);
+      video.src = videoUrl;
+      
+      const frames: Blob[] = [];
+      let currentTime = 0;
+      const frameInterval = 1 / fps; // Time between frames in seconds
+      
+      // Load metadata to get video duration
+      video.onloadedmetadata = () => {
+        const videoDuration = video.duration;
+        console.log('Video duration:', videoDuration, 'seconds');
+        
+        video.onseeked = async () => {
+          try {
+            // Create canvas to capture frame
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+              reject(new Error('Failed to get canvas context'));
+              return;
+            }
+            
+            // Draw current frame to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to blob
+            canvas.toBlob((blob) => {
+              if (blob) {
+                frames.push(blob);
+                console.log(`Captured frame at ${currentTime.toFixed(1)} seconds`);
+                
+                // Move to next frame or finish
+                currentTime += frameInterval;
+                if (currentTime < videoDuration) {
+                  video.currentTime = currentTime;
+                } else {
+                  // Clean up
+                  URL.revokeObjectURL(videoUrl);
+                  console.log(`Extracted ${frames.length} frames from video`);
+                  resolve(frames);
+                }
+              } else {
+                reject(new Error('Failed to convert canvas to blob'));
+              }
+            }, 'image/jpeg', 0.95);
+          } catch (error) {
+            console.error('Error during frame extraction:', error);
+            reject(error);
+          }
+        };
+        
+        // Start seeking to first frame
+        video.currentTime = currentTime;
+      };
+      
+      video.onerror = (e) => {
+        console.error('Video error during frame extraction:', e);
+        URL.revokeObjectURL(videoUrl);
+        reject(new Error('Error loading video for frame extraction'));
+      };
+      
+    } catch (error) {
+      console.error('Frame extraction failed:', error);
+      reject(error);
+    }
   });
 };
 

@@ -42,11 +42,18 @@ const ProcessingQueue = () => {
 
   const fetchVideos = async () => {
     if (!user) return;
+    
     try {
       setLoading(true);
+      
+      // Fetch queued videos
       const queued = await getVideoRecords(user.id, 'Queued');
+      console.log('Fetched queued videos:', queued);
       setQueuedVideos(queued || []);
+      
+      // Fetch completed videos
       const completed = await getVideoRecords(user.id, 'Completed');
+      console.log('Fetched completed videos:', completed);
       setCompletedVideos(completed || []);
     } catch (error) {
       console.error('Error fetching video records:', error);
@@ -66,9 +73,13 @@ const ProcessingQueue = () => {
 
   const simulateProcessingComplete = async (video: VideoRecord) => {
     try {
+      console.log('Updating video status to Completed:', video.id);
       await updateVideoStatus(video.id, 'Completed');
+      
+      // Update local state
       setQueuedVideos(prev => prev.filter(v => v.id !== video.id));
       setCompletedVideos(prev => [{ ...video, status: 'Completed' }, ...prev]);
+      
       toast({
         title: 'Processing Complete',
         description: 'Your video has been processed successfully.',
