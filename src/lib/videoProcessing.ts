@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { GPSCoordinate } from '@/types';
 import { uploadFile } from '@/lib/supabase';
@@ -115,11 +114,32 @@ export const extractAndSaveFrames = async (
   });
 };
 
-// Placeholder functions for ModelTestPage
-export const detectCracks = async (image: File) => {
-  throw new Error('Not implemented yet');
+// Define proper interface for crack detection result
+export interface CrackDetectionResult {
+  hasCrack: boolean;
+  confidence?: number;
+  predictions: Array<{
+    bbox?: [number, number, number, number]; // [x1, y1, x2, y2]
+    score?: number;
+    class?: string;
+  }>;
+}
+
+// Updated placeholder functions with proper return types for ModelTestPage
+export const detectCracks = async (image: File): Promise<CrackDetectionResult> => {
+  // This is a placeholder that will be implemented later
+  // For now, return a mock result so the UI works
+  console.log('Placeholder detectCracks called with image', image.name);
+  return {
+    hasCrack: false,
+    confidence: 0,
+    predictions: []
+  };
 };
 
-export const drawBoundingBoxes = async (imageUrl: string, predictions: any[]) => {
-  throw new Error('Not implemented yet');
+export const drawBoundingBoxes = async (imageUrl: string, predictions: any[]): Promise<string> => {
+  // This is a placeholder that will be implemented later
+  // For now, return the original image URL
+  console.log('Placeholder drawBoundingBoxes called with', predictions.length, 'predictions');
+  return imageUrl;
 };
