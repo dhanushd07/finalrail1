@@ -56,47 +56,6 @@ export type Database = {
           },
         ]
       }
-      video_frames: {
-        Row: {
-          created_at: string
-          frame_url: string
-          id: string
-          latitude: number | null
-          longitude: number | null
-          timestamp: number
-          user_id: string
-          video_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          frame_url: string
-          id?: string
-          latitude?: number | null
-          longitude?: number | null
-          timestamp: number
-          user_id: string
-          video_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          frame_url?: string
-          id?: string
-          latitude?: number | null
-          longitude?: number | null
-          timestamp?: number
-          user_id?: string
-          video_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "video_frames_video_id_fkey"
-            columns: ["video_id"]
-            isOneToOne: false
-            referencedRelation: "videos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       videos: {
         Row: {
           created_at: string | null

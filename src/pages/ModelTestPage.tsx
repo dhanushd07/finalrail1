@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { detectCracks, drawBoundingBoxes, CrackDetectionResult } from '@/lib/videoProcessing';
+import { detectCracks, drawBoundingBoxes } from '@/lib/videoProcessing';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -12,7 +13,11 @@ const ModelTestPage: React.FC = () => {
   const [preview, setPreview] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [results, setResults] = useState<CrackDetectionResult | null>(null);
+  const [results, setResults] = useState<{
+    hasCrack: boolean;
+    confidence?: number;
+    predictions: any[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,11 +28,13 @@ const ModelTestPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     
+    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('Image size exceeds 5MB limit');
       return;
     }
     
+    // Validate file type
     if (!file.type.startsWith('image/')) {
       setError('Selected file is not an image');
       return;
@@ -35,6 +42,7 @@ const ModelTestPage: React.FC = () => {
     
     setSelectedImage(file);
     
+    // Create image preview
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreview(e.target?.result as string);
@@ -49,10 +57,12 @@ const ModelTestPage: React.FC = () => {
     setError(null);
     
     try {
+      // Call the crack detection API
       const detectionResult = await detectCracks(selectedImage);
       setResults(detectionResult);
       
       if (preview && detectionResult.predictions.length > 0) {
+        // Draw bounding boxes on the image
         const imageWithBoxes = await drawBoundingBoxes(preview, detectionResult.predictions);
         setProcessedImage(imageWithBoxes);
       }

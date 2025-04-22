@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,8 +9,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { useAuth } from '@/contexts/AuthContext';
 import { uploadFile, createVideoRecord } from '@/lib/supabase';
 import { GPSCoordinate } from '@/types';
-import { extractAndSaveFrames } from '@/lib/videoProcessing';
-import { supabase } from '@/integrations/supabase/client';
 
 interface MediaDeviceInfo {
   deviceId: string;
@@ -254,54 +253,89 @@ const VideoRecorder = () => {
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
-    
+      
       mediaRecorderRef.current.onstop = async () => {
         try {
           setLoading(true);
-        
+          
           const videoBlob = new Blob(chunksRef.current, { type: 'video/webm' });
-        
+          
+          if (videoBlob.size > 50 * 1024 * 1024) {
+            setError('Video size exceeds 50MB limit. Please record a shorter video.');
+            setIsRecording(false);
+            setRecordingTime(0);
+            stopGpsTracking();
+            if (timerRef.current) clearInterval(timerRef.current);
+            setLoading(false);
+            return;
+          }
+          
+          // Format GPS log with seconds-based entries
+          const gpsLogHeader = 'second,latitude,longitude,accuracy';
+          const gpsLogRows = gpsLogRef.current.map(coord => 
+            `${coord.second},${coord.latitude},${coord.longitude},${coord.accuracy || 0}`
+          );
+          const gpsLogContent = [gpsLogHeader, ...gpsLogRows].join('\n');
+          const gpsLogBlob = new Blob([gpsLogContent], { type: 'text/csv' });
+          
           if (!user) {
             throw new Error('User not authenticated');
           }
-        
+          
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const videoFileName = `${user.id}/${timestamp}/video.webm`;
           const gpsLogFileName = `${user.id}/${timestamp}/gps_by_second.csv`;
-        
+          
           const videoFile = new File([videoBlob], 'video.webm');
-        
-          // Upload video
-          const videoUrl = await uploadToStorage('videos', videoFileName, videoFile);
-        
-          // Create video record
-          const { data: videoRecord, error: videoRecordError } = await supabase
-            .from('videos')
-            .insert({
+          const gpsLogFile = new File([gpsLogBlob], 'gps_by_second.csv');
+          
+          let videoUrl = '';
+          let gpsLogUrl = '';
+          
+          try {
+            console.log('Starting file uploads...');
+            videoUrl = await uploadToStorage('videos', videoFileName, videoFile);
+            console.log('Video upload successful');
+            gpsLogUrl = await uploadToStorage('gps-logs', gpsLogFileName, gpsLogFile);
+            console.log('GPS log upload successful');
+          } catch (uploadError) {
+            console.error('Upload error details:', uploadError);
+            
+            toast({
+              title: 'Upload Failed',
+              description: 'Error uploading files. Please try again.',
+              variant: 'destructive',
+            });
+            
+            throw uploadError;
+          }
+          
+          try {
+            await createVideoRecord({
               user_id: user.id,
               video_url: videoFileName,
               gps_log_url: gpsLogFileName,
-            })
-            .select()
-            .single();
-        
-          if (videoRecordError) throw videoRecordError;
-        
-          // Extract and save frames
-          await extractAndSaveFrames(
-            videoBlob, 
-            user.id, 
-            videoRecord.id, 
-            gpsLogRef.current
-          );
-        
-          toast({
-            title: 'Recording saved',
-            description: 'Your video has been uploaded with frames extracted.',
-          });
-        
+              status: 'Queued'
+            });
+            
+            toast({
+              title: 'Recording saved',
+              description: 'Your video has been uploaded and queued for processing.',
+            });
+          } catch (dbError) {
+            console.error('Database error details:', dbError);
+            
+            toast({
+              title: 'Database Error',
+              description: 'Failed to save record to the database.',
+              variant: 'destructive',
+            });
+            
+            throw dbError;
+          }
         } catch (err) {
           console.error('Error saving recording:', err);
+          
           toast({
             title: 'Recording Error',
             description: 'Failed to save your recording. Please try again.',
