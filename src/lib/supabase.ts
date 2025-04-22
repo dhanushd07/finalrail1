@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoRecord } from '@/types';
 
@@ -211,6 +210,35 @@ export const saveDetectionData = async (detectionData: {
 export const getPublicUrl = (bucket: string, path: string): string => {
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
+};
+
+/**
+ * Save frame metadata if needed
+ * @param frameData Frame metadata
+ */
+export const saveFrameData = async (frameData: {
+  video_id: string;
+  user_id: string;
+  frame_url: string;
+  timestamp: number;
+  latitude?: number;
+  longitude?: number;
+}) => {
+  try {
+    const { error } = await supabase
+      .from('video_frames')
+      .insert(frameData);
+    
+    if (error) {
+      console.error('Error saving frame data:', error);
+      throw error;
+    }
+    
+    console.log('Frame data saved successfully');
+  } catch (error) {
+    console.error('Error in saveFrameData:', error);
+    throw error;
+  }
 };
 
 /**
