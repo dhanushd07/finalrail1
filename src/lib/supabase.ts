@@ -213,7 +213,7 @@ export const getPublicUrl = (bucket: string, path: string): string => {
 };
 
 /**
- * Save frame metadata if needed
+ * Save frame metadata in the video_frames table
  * @param frameData Frame metadata
  */
 export const saveFrameData = async (frameData: {
@@ -225,6 +225,7 @@ export const saveFrameData = async (frameData: {
   longitude?: number;
 }) => {
   try {
+    console.log('Saving frame data:', frameData);
     const { error } = await supabase
       .from('video_frames')
       .insert(frameData);

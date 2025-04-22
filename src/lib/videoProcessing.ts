@@ -1,10 +1,9 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { GPSCoordinate } from '@/types';
-import { uploadFile, getPublicUrl } from '@/lib/supabase';
-import { matchFrameToGPS } from './videoProcessing';
+import { uploadFile } from '@/lib/supabase';
+import { matchFrameToGPS } from './gps';
 
-// Updated function to extract and save frames directly during upload
 export const extractAndSaveFrames = async (
   videoBlob: Blob, 
   userId: string, 
@@ -59,8 +58,21 @@ export const extractAndSaveFrames = async (
                   // Match GPS coordinates to this frame
                   const gpsCoord = matchFrameToGPS(currentTime, gpsCoordinates);
                   
-                  // Optional: Save frame metadata to database if needed
-                  // You might want to create a new function in supabase.ts to save frame details
+                  // Save frame metadata to video_frames table
+                  const { error: frameError } = await supabase
+                    .from('video_frames')
+                    .insert({
+                      video_id: videoId,
+                      user_id: userId,
+                      frame_url: frameUrl,
+                      timestamp: currentTime,
+                      latitude: gpsCoord?.latitude,
+                      longitude: gpsCoord?.longitude
+                    });
+
+                  if (frameError) {
+                    console.error('Error saving frame metadata:', frameError);
+                  }
                   
                   savedFrameUrls.push(frameUrl);
                   
@@ -103,3 +115,11 @@ export const extractAndSaveFrames = async (
   });
 };
 
+// Placeholder functions for ModelTestPage
+export const detectCracks = async (image: File) => {
+  throw new Error('Not implemented yet');
+};
+
+export const drawBoundingBoxes = async (imageUrl: string, predictions: any[]) => {
+  throw new Error('Not implemented yet');
+};
