@@ -1,3 +1,4 @@
+
 import { GPSCoordinate } from '@/types';
 
 // Function to extract frames from a video
@@ -24,50 +25,53 @@ export const extractFrames = async (videoBlob: Blob, fps: number = 1): Promise<B
         const videoDuration = video.duration;
         console.log('Video duration:', videoDuration, 'seconds');
         
-        video.onseeked = async () => {
-          try {
-            // Create canvas to capture frame
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            
-            if (!ctx) {
-              reject(new Error('Failed to get canvas context'));
-              return;
-            }
-            
-            // Draw current frame to canvas
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Convert canvas to blob
-            canvas.toBlob((blob) => {
-              if (blob) {
-                frames.push(blob);
-                console.log(`Captured frame at ${currentTime.toFixed(1)} seconds`);
-                
-                // Move to next frame or finish
-                currentTime += frameInterval;
-                if (currentTime < videoDuration) {
-                  video.currentTime = currentTime;
-                } else {
-                  // Clean up
-                  URL.revokeObjectURL(videoUrl);
-                  console.log(`Extracted ${frames.length} frames from video`);
-                  resolve(frames);
-                }
-              } else {
-                reject(new Error('Failed to convert canvas to blob'));
-              }
-            }, 'image/jpeg', 0.95);
-          } catch (error) {
-            console.error('Error during frame extraction:', error);
-            reject(error);
+        // Define a function to capture frames sequentially
+        const captureFrame = () => {
+          // If we've reached the end of the video, we're done
+          if (currentTime > videoDuration) {
+            URL.revokeObjectURL(videoUrl);
+            console.log(`Extracted ${frames.length} frames from video`);
+            resolve(frames);
+            return;
           }
+          
+          // Set the current time and wait for seeking to complete
+          video.currentTime = currentTime;
         };
         
-        // Start seeking to first frame
-        video.currentTime = currentTime;
+        // Handle the seeking events to capture frames
+        video.onseeked = () => {
+          // Create canvas to capture frame
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+          
+          // Draw current frame to canvas
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          // Convert canvas to blob
+          canvas.toBlob((blob) => {
+            if (blob) {
+              frames.push(blob);
+              console.log(`Captured frame at ${currentTime.toFixed(1)} seconds`);
+              
+              // Move to next frame and continue
+              currentTime += frameInterval;
+              captureFrame();
+            } else {
+              reject(new Error('Failed to convert canvas to blob'));
+            }
+          }, 'image/jpeg', 0.95);
+        };
+        
+        // Start the frame capture process
+        captureFrame();
       };
       
       video.onerror = (e) => {
@@ -75,6 +79,9 @@ export const extractFrames = async (videoBlob: Blob, fps: number = 1): Promise<B
         URL.revokeObjectURL(videoUrl);
         reject(new Error('Error loading video for frame extraction'));
       };
+      
+      // Force the video to load
+      video.load();
       
     } catch (error) {
       console.error('Frame extraction failed:', error);
