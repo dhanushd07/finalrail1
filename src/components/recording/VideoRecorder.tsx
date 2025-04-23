@@ -1,8 +1,7 @@
 
 import React, { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Camera, Video, StopCircle, AlertCircle } from 'lucide-react';
+import { Camera, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,16 +10,18 @@ import CameraSelect from './CameraSelect';
 import VideoPreview from './VideoPreview';
 import { useGPS } from '@/hooks/useGPS';
 import { useCamera } from '@/hooks/useCamera';
+import VideoStatus from './VideoStatus';
+import RecordingInstructions from './RecordingInstructions';
 
 const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingTime, setRecordingTime] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -46,17 +47,17 @@ const VideoRecorder: React.FC = () => {
       if (mediaRecorderRef.current && isRecording) {
         stopRecording();
       }
-      
+
       if (videoRef.current?.srcObject) {
         const existingStream = videoRef.current.srcObject as MediaStream;
         existingStream.getTracks().forEach(track => track.stop());
       }
-      
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { deviceId: { exact: selectedCamera } },
         audio: true
       });
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
@@ -74,6 +75,7 @@ const VideoRecorder: React.FC = () => {
     if (selectedCamera) {
       setupCamera();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCamera]);
 
   const startRecording = async () => {
@@ -85,7 +87,7 @@ const VideoRecorder: React.FC = () => {
       });
       return;
     }
-    
+
     const gpsStarted = startGpsTracking();
     if (!gpsStarted) {
       toast({
@@ -95,26 +97,26 @@ const VideoRecorder: React.FC = () => {
       });
       return;
     }
-    
+
     try {
       const stream = videoRef.current.srcObject as MediaStream;
       mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
-      
+
       chunksRef.current = [];
-      
+
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
-      
+
       mediaRecorderRef.current.start(1000);
       setIsRecording(true);
-      
+
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
-      
+
       toast({
         title: 'Recording started',
         description: 'GPS tracking is active. Recording in progress.',
@@ -133,13 +135,13 @@ const VideoRecorder: React.FC = () => {
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
-      
+
       mediaRecorderRef.current.onstop = async () => {
         try {
           setLoading(true);
-          
+
           const videoBlob = new Blob(chunksRef.current, { type: 'video/webm' });
-          
+
           if (videoBlob.size > 50 * 1024 * 1024) {
             toast({
               title: 'Error',
@@ -148,35 +150,35 @@ const VideoRecorder: React.FC = () => {
             });
             return;
           }
-          
+
           if (!user) {
             throw new Error('User not authenticated');
           }
-          
+
           const gpsLogHeader = 'second,latitude,longitude,accuracy';
-          const gpsLogRows = gpsLogRef.current.map(coord => 
+          const gpsLogRows = gpsLogRef.current.map(coord =>
             `${coord.second},${coord.latitude},${coord.longitude},${coord.accuracy || 0}`
           );
           const gpsLogContent = [gpsLogHeader, ...gpsLogRows].join('\n');
           const gpsLogBlob = new Blob([gpsLogContent], { type: 'text/csv' });
-          
+
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const videoFileName = `${user.id}/${timestamp}/video.webm`;
           const gpsLogFileName = `${user.id}/${timestamp}/gps_by_second.csv`;
-          
+
           const videoFile = new File([videoBlob], 'video.webm');
           const gpsLogFile = new File([gpsLogBlob], 'gps_by_second.csv');
-          
+
           const videoUrl = await uploadFile('videos', videoFileName, videoFile);
           const gpsLogUrl = await uploadFile('gps-logs', gpsLogFileName, gpsLogFile);
-          
+
           await createVideoRecord({
             user_id: user.id,
             video_url: videoFileName,
             gps_log_url: gpsLogFileName,
             status: 'Queued'
           });
-          
+
           toast({
             title: 'Recording saved',
             description: 'Your video has been uploaded and queued for processing.',
@@ -217,7 +219,7 @@ const VideoRecorder: React.FC = () => {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          
+
           <div className="space-y-4">
             <CameraSelect
               cameras={cameras}
@@ -225,7 +227,7 @@ const VideoRecorder: React.FC = () => {
               setSelectedCamera={setSelectedCamera}
               disabled={isRecording || loading}
             />
-            
+
             <VideoPreview
               videoRef={videoRef}
               isRecording={isRecording}
@@ -242,43 +244,22 @@ const VideoRecorder: React.FC = () => {
               ? 'Recording in progress...'
               : 'Ready to record'}
           </div>
-          
-          <div className="flex space-x-2">
-            {!isRecording ? (
-              <Button 
-                onClick={startRecording} 
-                disabled={loading || !selectedCamera || cameraPermission === false || error !== null}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                <Video className="mr-2 h-4 w-4" />
-                Start Recording
-              </Button>
-            ) : (
-              <Button 
-                onClick={stopRecording} 
-                variant="destructive"
-                disabled={loading}
-              >
-                <StopCircle className="mr-2 h-4 w-4" />
-                Stop Recording
-              </Button>
-            )}
-          </div>
+          <VideoStatus
+            isRecording={isRecording}
+            loading={loading}
+            selectedCamera={selectedCamera}
+            cameraPermission={cameraPermission}
+            error={error}
+            startRecording={startRecording}
+            stopRecording={stopRecording}
+          />
         </CardFooter>
       </Card>
-      
-      <div className="w-full p-4 bg-muted rounded-lg">
-        <h3 className="font-medium mb-2">Recording Instructions:</h3>
-        <ul className="list-disc list-inside space-y-1 text-sm">
-          <li>Ensure your camera has a clear view of the railway track</li>
-          <li>Allow location permissions when prompted for GPS tracking</li>
-          <li>Record at a consistent speed for best results</li>
-          <li>Maximum video size: 50MB (approximately 2-5 minutes)</li>
-          <li>After stopping, the video will be uploaded and queued for processing</li>
-        </ul>
-      </div>
+
+      <RecordingInstructions />
     </div>
   );
 };
 
 export default VideoRecorder;
+
