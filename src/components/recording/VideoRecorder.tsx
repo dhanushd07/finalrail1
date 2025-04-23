@@ -83,7 +83,8 @@ const VideoRecorder: React.FC = () => {
       toast({
         title: 'GPS Warning',
         description: 'GPS tracking could not be started. Location data may be limited.',
-        variant: 'warning',
+        // Change from 'warning' to 'default' as 'warning' is not a valid variant
+        variant: 'default',
       });
       // Continue anyway - don't return
     }

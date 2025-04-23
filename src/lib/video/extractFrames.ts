@@ -25,7 +25,7 @@ export const extractFrames = async (videoBlob: Blob, fps: number = 1): Promise<B
       const frames: Blob[] = [];
       let currentTime = 0;
       const frameInterval = 1 / fps;
-      let timeoutId: number | null = null;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
       // Set a safety timeout in case video doesn't load or something blocks the process
       const safetyTimeout = setTimeout(() => {
