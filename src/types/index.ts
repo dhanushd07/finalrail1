@@ -1,3 +1,4 @@
+
 export interface AppUser {
   id: string;
   email: string;
@@ -18,4 +19,11 @@ export interface GPSCoordinate {
   longitude: number;
   accuracy?: number;
   timestamp?: string; // Keep for backward compatibility
+}
+
+export interface VideoFrame {
+  blob: Blob;
+  index: number;
+  timestamp: number;
+  gpsCoordinate?: GPSCoordinate;
 }
