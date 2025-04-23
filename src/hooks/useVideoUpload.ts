@@ -1,19 +1,13 @@
 
 import { useToast } from '@/hooks/use-toast';
 import { uploadFile, createVideoRecord } from '@/lib/supabase';
-import { User } from '@supabase/supabase-js';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { GPSCoordinate } from '@/types';
 import { MutableRefObject } from 'react';
 
-interface GpsCoord {
-  second: number;
-  latitude: number;
-  longitude: number;
-  accuracy?: number;
-}
-
 interface UseVideoUploadParams {
-  user: User | null;
-  gpsLogRef: MutableRefObject<GpsCoord[]>;
+  user: SupabaseUser | null;
+  gpsLogRef: MutableRefObject<GPSCoordinate[]>;
   stopGpsTracking: () => void;
   toast: ReturnType<typeof useToast>['toast'];
 }

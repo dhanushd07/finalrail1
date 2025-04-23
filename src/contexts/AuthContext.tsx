@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import type { User } from '@/types';
+import type { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -25,10 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (currentUser) {
-          setUser({
-            id: currentUser.id,
-            email: currentUser.email || '',
-          });
+          setUser(currentUser);
         }
       } catch (error) {
         console.error('Error checking user session:', error);
@@ -43,10 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-          });
+          setUser(session.user);
           navigate('/dashboard');
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
