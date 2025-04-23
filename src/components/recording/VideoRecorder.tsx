@@ -49,7 +49,8 @@ const VideoRecorder: React.FC = () => {
     gpsAccuracy,
     gpsLogRef,
     startGpsTracking,
-    stopGpsTracking
+    stopGpsTracking,
+    generateGpsLogContent
   } = useGPS();
 
   useCameraSetup({
@@ -63,7 +64,7 @@ const VideoRecorder: React.FC = () => {
     user,
     gpsLogRef,
     stopGpsTracking,
-    toast,
+    generateGpsLogContent
   });
 
   const handleStartRecording = async () => {
@@ -78,27 +79,42 @@ const VideoRecorder: React.FC = () => {
 
     const gpsStarted = startGpsTracking();
     if (!gpsStarted) {
+      console.warn('GPS tracking could not be started, continuing without GPS');
       toast({
-        title: 'GPS Error',
-        description: 'GPS tracking could not be started',
-        variant: 'destructive',
+        title: 'GPS Warning',
+        description: 'GPS tracking could not be started. Location data may be limited.',
+        variant: 'warning',
       });
-      return;
+      // Continue anyway - don't return
     }
 
     try {
       const stream = videoRef.current.srcObject as MediaStream;
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      const options = { 
+        mimeType: 'video/webm;codecs=vp9,opus'
+      };
+      
+      // Try the specified mime type first
+      if (MediaRecorder.isTypeSupported(options.mimeType)) {
+        mediaRecorderRef.current = new MediaRecorder(stream, options);
+        console.log(`Using ${options.mimeType} for recording`);
+      } else {
+        // Fallback to browser default
+        console.log(`${options.mimeType} not supported, using browser default`);
+        mediaRecorderRef.current = new MediaRecorder(stream);
+      }
 
       chunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
+          console.log(`Received data chunk: ${event.data.size} bytes`);
         }
       };
 
       mediaRecorderRef.current.onstop = async () => {
+        console.log(`Recording stopped with ${chunksRef.current.length} chunks collected`);
         await uploadRecording(
           chunksRef.current,
           setLoading,
@@ -109,13 +125,14 @@ const VideoRecorder: React.FC = () => {
         stopTimer();
       };
 
+      console.log('Starting MediaRecorder');
       mediaRecorderRef.current.start(1000);
       setIsRecording(true);
       startTimer();
 
       toast({
         title: 'Recording started',
-        description: 'GPS tracking is active. Recording in progress.',
+        description: gpsStarted ? 'GPS tracking is active. Recording in progress.' : 'Recording in progress without GPS.',
       });
     } catch (err) {
       console.error('Error starting recording:', err);
@@ -130,7 +147,9 @@ const VideoRecorder: React.FC = () => {
 
   const handleStopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      console.log('Stopping recording');
       mediaRecorderRef.current.stop();
+      // uploadRecording will be called from mediaRecorder.onstop event
     }
   };
 

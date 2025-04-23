@@ -9,10 +9,17 @@ interface UseVideoUploadParams {
   user: SupabaseUser | null;
   gpsLogRef: MutableRefObject<GPSCoordinate[]>;
   stopGpsTracking: () => void;
-  toast: ReturnType<typeof useToast>['toast'];
+  generateGpsLogContent: () => string;
 }
 
-export function useVideoUpload({ user, gpsLogRef, stopGpsTracking, toast }: UseVideoUploadParams) {
+export function useVideoUpload({ 
+  user, 
+  gpsLogRef, 
+  stopGpsTracking, 
+  generateGpsLogContent 
+}: UseVideoUploadParams) {
+  const { toast } = useToast();
+
   const uploadRecording = async (
     chunks: Blob[],
     setLoading: (v: boolean) => void,
@@ -23,6 +30,16 @@ export function useVideoUpload({ user, gpsLogRef, stopGpsTracking, toast }: UseV
       setLoading(true);
 
       const videoBlob = new Blob(chunks, { type: 'video/webm' });
+      console.log(`Video recording completed: ${videoBlob.size} bytes`);
+
+      if (videoBlob.size === 0) {
+        toast({
+          title: 'Error',
+          description: 'Video recording is empty. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       if (videoBlob.size > 50 * 1024 * 1024) {
         toast({
@@ -34,11 +51,12 @@ export function useVideoUpload({ user, gpsLogRef, stopGpsTracking, toast }: UseV
       }
 
       if (!user) throw new Error('User not authenticated');
-      const gpsLogHeader = 'second,latitude,longitude,accuracy';
-      const gpsLogRows = gpsLogRef.current.map(coord =>
-        `${coord.second},${coord.latitude},${coord.longitude},${coord.accuracy || 0}`
-      );
-      const gpsLogContent = [gpsLogHeader, ...gpsLogRows].join('\n');
+      
+      // Generate GPS log content from the collected coordinates
+      console.log(`Processing ${gpsLogRef.current.length} GPS coordinates`);
+      const gpsLogContent = generateGpsLogContent();
+      console.log(`GPS log content length: ${gpsLogContent.length} characters`);
+      
       const gpsLogBlob = new Blob([gpsLogContent], { type: 'text/csv' });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -47,10 +65,16 @@ export function useVideoUpload({ user, gpsLogRef, stopGpsTracking, toast }: UseV
 
       const videoFile = new File([videoBlob], 'video.webm');
       const gpsLogFile = new File([gpsLogBlob], 'gps_by_second.csv');
-
+      
+      console.log('Uploading video file:', videoFileName);
       const videoUrl = await uploadFile('videos', videoFileName, videoFile);
+      console.log('Video uploaded successfully');
+      
+      console.log('Uploading GPS log file:', gpsLogFileName);
       const gpsLogUrl = await uploadFile('gps-logs', gpsLogFileName, gpsLogFile);
+      console.log('GPS log uploaded successfully');
 
+      console.log('Creating video record in database');
       await createVideoRecord({
         user_id: user.id,
         video_url: videoFileName,
