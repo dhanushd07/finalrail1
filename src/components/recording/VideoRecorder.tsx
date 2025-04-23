@@ -1,11 +1,9 @@
 
 import React, { useRef, useState } from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Camera, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { uploadFile, createVideoRecord } from '@/lib/supabase';
 import CameraSelect from './CameraSelect';
 import VideoPreview from './VideoPreview';
 import { useGPS } from '@/hooks/useGPS';
@@ -13,17 +11,29 @@ import { useCamera } from '@/hooks/useCamera';
 import VideoStatus from './VideoStatus';
 import RecordingInstructions from './RecordingInstructions';
 
+import { useVideoRecording } from '@/hooks/useVideoRecording';
+import { useCameraSetup } from '@/hooks/useCameraSetup';
+import { useVideoUpload } from '@/hooks/useVideoUpload';
+
 const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Custom hooks for logical separation
+  const {
+    isRecording,
+    setIsRecording,
+    recordingTime,
+    setRecordingTime,
+    timerRef,
+    mediaRecorderRef,
+    chunksRef,
+    startTimer,
+    stopTimer
+  } = useVideoRecording();
 
-  const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [recordingTime, setRecordingTime] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
 
   const {
@@ -42,43 +52,21 @@ const VideoRecorder: React.FC = () => {
     stopGpsTracking
   } = useGPS();
 
-  const setupCamera = async () => {
-    try {
-      if (mediaRecorderRef.current && isRecording) {
-        stopRecording();
-      }
+  useCameraSetup({
+    selectedCamera,
+    videoRef,
+    isRecording,
+    stopRecording: () => handleStopRecording(),
+  });
 
-      if (videoRef.current?.srcObject) {
-        const existingStream = videoRef.current.srcObject as MediaStream;
-        existingStream.getTracks().forEach(track => track.stop());
-      }
+  const { uploadRecording } = useVideoUpload({
+    user,
+    gpsLogRef,
+    stopGpsTracking,
+    toast,
+  });
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: selectedCamera } },
-        audio: true
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.error('Error setting up camera:', err);
-      toast({
-        title: 'Camera Error',
-        description: 'Failed to access selected camera. The device may be in use by another application.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  React.useEffect(() => {
-    if (selectedCamera) {
-      setupCamera();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCamera]);
-
-  const startRecording = async () => {
+  const handleStartRecording = async () => {
     if (!videoRef.current?.srcObject) {
       toast({
         title: 'Error',
@@ -110,12 +98,20 @@ const VideoRecorder: React.FC = () => {
         }
       };
 
+      mediaRecorderRef.current.onstop = async () => {
+        await uploadRecording(
+          chunksRef.current,
+          setLoading,
+          setIsRecording,
+          setRecordingTime
+        );
+        chunksRef.current = [];
+        stopTimer();
+      };
+
       mediaRecorderRef.current.start(1000);
       setIsRecording(true);
-
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
+      startTimer();
 
       toast({
         title: 'Recording started',
@@ -132,73 +128,9 @@ const VideoRecorder: React.FC = () => {
     }
   };
 
-  const stopRecording = () => {
+  const handleStopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
-
-      mediaRecorderRef.current.onstop = async () => {
-        try {
-          setLoading(true);
-
-          const videoBlob = new Blob(chunksRef.current, { type: 'video/webm' });
-
-          if (videoBlob.size > 50 * 1024 * 1024) {
-            toast({
-              title: 'Error',
-              description: 'Video size exceeds 50MB limit. Please record a shorter video.',
-              variant: 'destructive',
-            });
-            return;
-          }
-
-          if (!user) {
-            throw new Error('User not authenticated');
-          }
-
-          const gpsLogHeader = 'second,latitude,longitude,accuracy';
-          const gpsLogRows = gpsLogRef.current.map(coord =>
-            `${coord.second},${coord.latitude},${coord.longitude},${coord.accuracy || 0}`
-          );
-          const gpsLogContent = [gpsLogHeader, ...gpsLogRows].join('\n');
-          const gpsLogBlob = new Blob([gpsLogContent], { type: 'text/csv' });
-
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const videoFileName = `${user.id}/${timestamp}/video.webm`;
-          const gpsLogFileName = `${user.id}/${timestamp}/gps_by_second.csv`;
-
-          const videoFile = new File([videoBlob], 'video.webm');
-          const gpsLogFile = new File([gpsLogBlob], 'gps_by_second.csv');
-
-          const videoUrl = await uploadFile('videos', videoFileName, videoFile);
-          const gpsLogUrl = await uploadFile('gps-logs', gpsLogFileName, gpsLogFile);
-
-          await createVideoRecord({
-            user_id: user.id,
-            video_url: videoFileName,
-            gps_log_url: gpsLogFileName,
-            status: 'Queued'
-          });
-
-          toast({
-            title: 'Recording saved',
-            description: 'Your video has been uploaded and queued for processing.',
-          });
-        } catch (err) {
-          console.error('Error saving recording:', err);
-          toast({
-            title: 'Recording Error',
-            description: 'Failed to save your recording. Please try again.',
-            variant: 'destructive',
-          });
-        } finally {
-          chunksRef.current = [];
-          setIsRecording(false);
-          setRecordingTime(0);
-          stopGpsTracking();
-          setLoading(false);
-          if (timerRef.current) clearInterval(timerRef.current);
-        }
-      };
     }
   };
 
@@ -213,11 +145,10 @@ const VideoRecorder: React.FC = () => {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="mb-4 flex items-center bg-red-100 text-red-700 p-2 rounded">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              <span>{error}</span>
+            </div>
           )}
 
           <div className="space-y-4">
@@ -250,8 +181,8 @@ const VideoRecorder: React.FC = () => {
             selectedCamera={selectedCamera}
             cameraPermission={cameraPermission}
             error={error}
-            startRecording={startRecording}
-            stopRecording={stopRecording}
+            startRecording={handleStartRecording}
+            stopRecording={handleStopRecording}
           />
         </CardFooter>
       </Card>
@@ -262,4 +193,3 @@ const VideoRecorder: React.FC = () => {
 };
 
 export default VideoRecorder;
-
