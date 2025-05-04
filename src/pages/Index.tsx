@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Camera, TestTubes } from 'lucide-react';
+import { Camera, TestTubes } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
@@ -12,9 +12,12 @@ const Index = () => {
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-6rem)] py-12 space-y-10">
       <div className="text-center space-y-4">
         <div className="flex justify-center mb-6">
-          <Shield className="h-24 w-24 text-primary" />
+          <img 
+            src="/lovable-uploads/ed011188-d039-470c-8a6e-53f000bd6f8d.png" 
+            alt="tracksense logo" 
+            className="h-24" 
+          />
         </div>
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">RailTrack Vision AI</h1>
         <p className="text-xl text-muted-foreground max-w-2xl">
           Advanced railway crack detection using computer vision technology
         </p>
