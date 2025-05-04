@@ -15,7 +15,7 @@ const Index = () => {
           <img 
             src="/lovable-uploads/ed011188-d039-470c-8a6e-53f000bd6f8d.png" 
             alt="tracksense logo" 
-            className="h-24" 
+            className="h-32" 
           />
         </div>
         <p className="text-xl text-muted-foreground max-w-2xl">

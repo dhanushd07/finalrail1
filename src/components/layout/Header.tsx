@@ -23,7 +23,7 @@ const Header = () => {
           <img 
             src="/lovable-uploads/ed011188-d039-470c-8a6e-53f000bd6f8d.png" 
             alt="tracksense logo" 
-            className="h-8" 
+            className="h-10" 
           />
         </Link>
         
