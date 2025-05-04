@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Camera, Video, LayoutDashboard, TestTubes } from 'lucide-react';
+import { Shield, Camera, TestTubes } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
@@ -27,22 +27,6 @@ const Index = () => {
               <Camera className="h-12 w-12 mb-4 text-primary group-hover:scale-110 transition-transform" />
               <h2 className="text-xl font-semibold">Record Video</h2>
               <p className="text-muted-foreground mt-2">Capture railway footage with GPS tracking</p>
-            </div>
-          </Link>
-          
-          <Link to="/process" className="w-full">
-            <div className="border group rounded-lg p-6 flex flex-col items-center text-center hover:border-primary hover:bg-accent transition-colors">
-              <Video className="h-12 w-12 mb-4 text-primary group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold">View Uploads</h2>
-              <p className="text-muted-foreground mt-2">Track processing status of recorded videos</p>
-            </div>
-          </Link>
-          
-          <Link to="/dashboard" className="w-full">
-            <div className="border group rounded-lg p-6 flex flex-col items-center text-center hover:border-primary hover:bg-accent transition-colors">
-              <LayoutDashboard className="h-12 w-12 mb-4 text-primary group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold">Dashboard</h2>
-              <p className="text-muted-foreground mt-2">View detection results with map visualization</p>
             </div>
           </Link>
           

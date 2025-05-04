@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Shield, Camera, Video, LayoutDashboard, Database, LogOut, TestTubes } from 'lucide-react';
+import { Shield, Camera, LogOut, TestTubes } from 'lucide-react';
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -30,14 +30,6 @@ const Header = () => {
               <Link to="/record" className="flex items-center gap-1 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md">
                 <Camera className="h-4 w-4" />
                 Record
-              </Link>
-              <Link to="/process" className="flex items-center gap-1 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md">
-                <Video className="h-4 w-4" />
-                Process
-              </Link>
-              <Link to="/dashboard" className="flex items-center gap-1 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md">
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
               </Link>
               <Link to="/model-test" className="flex items-center gap-1 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md">
                 <TestTubes className="h-4 w-4" />
