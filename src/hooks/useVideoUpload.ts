@@ -3,13 +3,13 @@ import { useToast } from '@/hooks/use-toast';
 import { uploadFile, createVideoRecord } from '@/lib/supabase';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { GPSCoordinate } from '@/types';
-import { MutableRefObject } from 'react';
+import { MutableRefObject, useCallback } from 'react';
 
 interface UseVideoUploadParams {
   user: SupabaseUser | null;
   gpsLogRef: MutableRefObject<GPSCoordinate[]>;
   stopGpsTracking: () => void;
-  generateGpsLogContent: () => string;
+  generateGpsLogContent: (durationSeconds: number) => string;
 }
 
 export function useVideoUpload({ 
@@ -20,17 +20,19 @@ export function useVideoUpload({
 }: UseVideoUploadParams) {
   const { toast } = useToast();
 
-  const uploadRecording = async (
+  const uploadRecording = useCallback(async (
     chunks: Blob[],
     setLoading: (v: boolean) => void,
     setIsRecording: (v: boolean) => void,
-    setRecordingTime: (v: number) => void
+    setRecordingTime: (v: number) => void,
+    recordingDuration: number
   ) => {
     try {
       setLoading(true);
+      console.log(`Starting upload with ${chunks.length} chunks`);
 
-      const videoBlob = new Blob(chunks, { type: 'video/webm' });
-      console.log(`Video recording completed: ${videoBlob.size} bytes`);
+      const videoBlob = new Blob(chunks, { type: 'video/webm;codecs=vp9,opus' });
+      console.log(`Video recording completed: ${videoBlob.size} bytes, duration: ${recordingDuration} seconds`);
 
       if (videoBlob.size === 0) {
         toast({
@@ -52,9 +54,9 @@ export function useVideoUpload({
 
       if (!user) throw new Error('User not authenticated');
       
-      // Generate GPS log content from the collected coordinates
-      console.log(`Processing ${gpsLogRef.current.length} GPS coordinates`);
-      const gpsLogContent = generateGpsLogContent();
+      // Generate GPS log content with seconds from 1 to video duration
+      console.log(`Processing ${gpsLogRef.current.length} GPS coordinates for ${recordingDuration} second video`);
+      const gpsLogContent = generateGpsLogContent(recordingDuration);
       console.log(`GPS log content length: ${gpsLogContent.length} characters`);
       
       const gpsLogBlob = new Blob([gpsLogContent], { type: 'text/csv' });
@@ -99,7 +101,7 @@ export function useVideoUpload({
       stopGpsTracking();
       setLoading(false);
     }
-  };
+  }, [user, generateGpsLogContent, stopGpsTracking, toast]);
 
   return { uploadRecording };
 }

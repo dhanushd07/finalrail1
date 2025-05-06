@@ -1,5 +1,5 @@
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 
 interface UseVideoRecordingReturn {
   isRecording: boolean;
@@ -11,6 +11,7 @@ interface UseVideoRecordingReturn {
   chunksRef: React.MutableRefObject<Blob[]>;
   startTimer: () => void;
   stopTimer: () => void;
+  getRecordingDuration: () => number;
 }
 
 export function useVideoRecording(): UseVideoRecordingReturn {
@@ -20,16 +21,24 @@ export function useVideoRecording(): UseVideoRecordingReturn {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  const startTimer = () => {
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    
     timerRef.current = setInterval(() => {
       setRecordingTime(prev => prev + 1);
     }, 1000);
-  };
+  }, []);
 
-  const stopTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setRecordingTime(0);
-  };
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const getRecordingDuration = useCallback(() => {
+    return recordingTime;
+  }, [recordingTime]);
 
   return {
     isRecording,
@@ -40,6 +49,7 @@ export function useVideoRecording(): UseVideoRecordingReturn {
     mediaRecorderRef,
     chunksRef,
     startTimer,
-    stopTimer
+    stopTimer,
+    getRecordingDuration
   };
 }

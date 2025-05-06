@@ -26,47 +26,18 @@ export const parseGPSLog = (gpsLogContent: string): GPSCoordinate[] => {
   
   for (const line of dataLines) {
     const parts = line.split(',');
-    console.log(`Processing GPS line: ${line}`);
     
     if (parts.length >= 3) {
       try {
-        // Determine if we have a timestamp or second-based format
-        if (!isNaN(Number(parts[0]))) {
-          // Second-based format
-          const [second, latitude, longitude, accuracy] = parts;
-          
-          coordinates.push({
-            second: parseInt(second, 10),
-            latitude: parseFloat(latitude),
-            longitude: parseFloat(longitude),
-            accuracy: accuracy ? parseFloat(accuracy) : undefined,
-          });
-        } else {
-          // Timestamp-based format
-          const [timestamp, latitude, longitude, accuracy] = parts;
-          
-          // Convert timestamp to seconds if needed
-          let second = 0;
-          if (timestamp) {
-            try {
-              // If timestamp is a date string, try to convert to seconds since recording start
-              const date = new Date(timestamp);
-              if (!isNaN(date.getTime())) {
-                second = Math.floor(date.getTime() / 1000);
-              }
-            } catch (e) {
-              console.warn('Could not parse timestamp:', timestamp);
-            }
-          }
-          
-          coordinates.push({
-            second,
-            timestamp,
-            latitude: parseFloat(latitude),
-            longitude: parseFloat(longitude),
-            accuracy: accuracy ? parseFloat(accuracy) : undefined,
-          });
-        }
+        // Second-based format (we're standardized on this now)
+        const [second, latitude, longitude, accuracy] = parts;
+        
+        coordinates.push({
+          second: parseInt(second, 10),
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+          accuracy: accuracy ? parseFloat(accuracy) : undefined,
+        });
       } catch (e) {
         console.error('Failed to parse GPS line:', line, e);
       }
