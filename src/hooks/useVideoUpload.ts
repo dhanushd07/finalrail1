@@ -9,7 +9,7 @@ interface UseVideoUploadParams {
   user: SupabaseUser | null;
   gpsLogRef: MutableRefObject<GPSCoordinate[]>;
   stopGpsTracking: () => void;
-  generateGpsLogContent: (videoDuration?: number) => string;
+  generateGpsLogContent: () => string;
 }
 
 export function useVideoUpload({ 
@@ -24,14 +24,10 @@ export function useVideoUpload({
     chunks: Blob[],
     setLoading: (v: boolean) => void,
     setIsRecording: (v: boolean) => void,
-    setRecordingTime: (v: number) => void,
-    videoDuration?: number
+    setRecordingTime: (v: number) => void
   ) => {
     try {
-      // Set loading state immediately and stop recording state
       setLoading(true);
-      setIsRecording(false);
-      stopGpsTracking();
 
       const videoBlob = new Blob(chunks, { type: 'video/webm' });
       console.log(`Video recording completed: ${videoBlob.size} bytes`);
@@ -42,8 +38,6 @@ export function useVideoUpload({
           description: 'Video recording is empty. Please try again.',
           variant: 'destructive',
         });
-        setLoading(false);
-        setRecordingTime(0);
         return;
       }
 
@@ -53,26 +47,14 @@ export function useVideoUpload({
           description: 'Video size exceeds 50MB limit. Please record a shorter video.',
           variant: 'destructive',
         });
-        setLoading(false);
-        setRecordingTime(0);
         return;
       }
 
-      if (!user) {
-        toast({
-          title: 'Error',
-          description: 'User not authenticated. Please sign in.',
-          variant: 'destructive',
-        });
-        setLoading(false);
-        setRecordingTime(0);
-        return;
-      }
+      if (!user) throw new Error('User not authenticated');
       
-      // Generate GPS log content with the video duration
+      // Generate GPS log content from the collected coordinates
       console.log(`Processing ${gpsLogRef.current.length} GPS coordinates`);
-      console.log(`Video duration for GPS log: ${videoDuration || 'unknown'} seconds`);
-      const gpsLogContent = generateGpsLogContent(videoDuration);
+      const gpsLogContent = generateGpsLogContent();
       console.log(`GPS log content length: ${gpsLogContent.length} characters`);
       
       const gpsLogBlob = new Blob([gpsLogContent], { type: 'text/csv' });
@@ -84,22 +66,15 @@ export function useVideoUpload({
       const videoFile = new File([videoBlob], 'video.webm');
       const gpsLogFile = new File([gpsLogBlob], 'gps_by_second.csv');
       
-      // Show uploading status to user
-      toast({
-        title: 'Uploading',
-        description: 'Please wait while we upload your recording.',
-      });
+      console.log('Uploading video file:', videoFileName);
+      const videoUrl = await uploadFile('videos', videoFileName, videoFile);
+      console.log('Video uploaded successfully');
       
-      // Upload both files in parallel for better performance
-      console.log('Uploading video and GPS log files...');
-      const [videoUrl, gpsLogUrl] = await Promise.all([
-        uploadFile('videos', videoFileName, videoFile),
-        uploadFile('gps-logs', gpsLogFileName, gpsLogFile)
-      ]);
-      
-      console.log('Files uploaded successfully');
+      console.log('Uploading GPS log file:', gpsLogFileName);
+      const gpsLogUrl = await uploadFile('gps-logs', gpsLogFileName, gpsLogFile);
+      console.log('GPS log uploaded successfully');
+
       console.log('Creating video record in database');
-      
       await createVideoRecord({
         user_id: user.id,
         video_url: videoFileName,
@@ -119,7 +94,9 @@ export function useVideoUpload({
         variant: 'destructive',
       });
     } finally {
+      setIsRecording(false);
       setRecordingTime(0);
+      stopGpsTracking();
       setLoading(false);
     }
   };
