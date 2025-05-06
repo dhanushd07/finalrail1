@@ -39,7 +39,6 @@ const App = () => (
               
               <Route element={<RouteGuard authRequired={true} />}>
                 <Route path="/record" element={<RecordingPage />} />
-                {/* Keep these routes for functionality, but remove from visible navigation */}
                 <Route path="/process" element={<ProcessingPage />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/model-test" element={<ModelTestPage />} />
