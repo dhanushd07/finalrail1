@@ -48,6 +48,7 @@ const VideoRecorder: React.FC = () => {
     gpsEnabled,
     gpsAccuracy,
     gpsLogRef,
+    recordingDuration,
     startGpsTracking,
     stopGpsTracking,
     generateGpsLogContent
@@ -83,7 +84,6 @@ const VideoRecorder: React.FC = () => {
       toast({
         title: 'GPS Warning',
         description: 'GPS tracking could not be started. Location data may be limited.',
-        // Change from 'warning' to 'default' as 'warning' is not a valid variant
         variant: 'default',
       });
       // Continue anyway - don't return
@@ -116,14 +116,45 @@ const VideoRecorder: React.FC = () => {
 
       mediaRecorderRef.current.onstop = async () => {
         console.log(`Recording stopped with ${chunksRef.current.length} chunks collected`);
-        await uploadRecording(
-          chunksRef.current,
-          setLoading,
-          setIsRecording,
-          setRecordingTime
-        );
-        chunksRef.current = [];
-        stopTimer();
+        
+        // Create a temporary video element to get the duration
+        const tempVideo = document.createElement('video');
+        const tempVideoBlob = new Blob(chunksRef.current, { type: 'video/webm' });
+        const tempVideoUrl = URL.createObjectURL(tempVideoBlob);
+        
+        tempVideo.src = tempVideoUrl;
+        tempVideo.onloadedmetadata = async () => {
+          const videoDuration = Math.ceil(tempVideo.duration);
+          console.log(`Video duration: ${videoDuration} seconds`);
+          
+          // Now upload with the correct duration
+          await uploadRecording(
+            chunksRef.current,
+            setLoading,
+            setIsRecording,
+            setRecordingTime,
+            videoDuration
+          );
+          
+          URL.revokeObjectURL(tempVideoUrl);
+          chunksRef.current = [];
+          stopTimer();
+        };
+        
+        tempVideo.onerror = async (e) => {
+          console.error('Error loading video metadata:', e);
+          // Fallback to using recorded time
+          await uploadRecording(
+            chunksRef.current,
+            setLoading,
+            setIsRecording,
+            setRecordingTime
+          );
+          chunksRef.current = [];
+          stopTimer();
+        };
+        
+        tempVideo.load();
       };
 
       console.log('Starting MediaRecorder');
