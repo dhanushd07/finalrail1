@@ -14,6 +14,7 @@ import RecordingInstructions from './RecordingInstructions';
 import { useVideoRecording } from '@/hooks/useVideoRecording';
 import { useCameraSetup } from '@/hooks/useCameraSetup';
 import { useVideoUpload } from '@/hooks/useVideoUpload';
+import { Progress } from '@/components/ui/progress';
 
 const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
@@ -35,6 +36,7 @@ const VideoRecorder: React.FC = () => {
   } = useVideoRecording();
 
   const [loading, setLoading] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   const {
     cameras,
@@ -78,6 +80,9 @@ const VideoRecorder: React.FC = () => {
       return;
     }
 
+    // Reset any previous upload progress
+    setUploadProgress(0);
+
     const gpsStarted = startGpsTracking();
     if (!gpsStarted) {
       console.warn('GPS tracking could not be started, continuing without GPS');
@@ -92,7 +97,8 @@ const VideoRecorder: React.FC = () => {
     try {
       const stream = videoRef.current.srcObject as MediaStream;
       const options = { 
-        mimeType: 'video/webm;codecs=vp9,opus'
+        mimeType: 'video/webm;codecs=vp9,opus',
+        videoBitsPerSecond: 2500000 // Set a moderate bitrate to reduce file size
       };
       
       // Try the specified mime type first
@@ -117,48 +123,54 @@ const VideoRecorder: React.FC = () => {
       mediaRecorderRef.current.onstop = async () => {
         console.log(`Recording stopped with ${chunksRef.current.length} chunks collected`);
         
-        // Create a temporary video element to get the duration
-        const tempVideo = document.createElement('video');
-        const tempVideoBlob = new Blob(chunksRef.current, { type: 'video/webm' });
-        const tempVideoUrl = URL.createObjectURL(tempVideoBlob);
-        
-        tempVideo.src = tempVideoUrl;
-        tempVideo.onloadedmetadata = async () => {
-          const videoDuration = Math.ceil(tempVideo.duration);
-          console.log(`Video duration: ${videoDuration} seconds`);
+        // Create a temporary video element to get the duration in a non-blocking way
+        setTimeout(() => {
+          const tempVideo = document.createElement('video');
+          const tempVideoBlob = new Blob(chunksRef.current, { type: 'video/webm' });
+          const tempVideoUrl = URL.createObjectURL(tempVideoBlob);
           
-          // Now upload with the correct duration
-          await uploadRecording(
-            chunksRef.current,
-            setLoading,
-            setIsRecording,
-            setRecordingTime,
-            videoDuration
-          );
+          tempVideo.onloadedmetadata = async () => {
+            const videoDuration = Math.ceil(tempVideo.duration);
+            console.log(`Video duration: ${videoDuration} seconds`);
+            
+            // Now upload with the correct duration
+            await uploadRecording(
+              chunksRef.current,
+              setLoading,
+              setIsRecording,
+              setRecordingTime,
+              videoDuration
+            );
+            
+            URL.revokeObjectURL(tempVideoUrl);
+            chunksRef.current = [];
+            stopTimer();
+          };
           
-          URL.revokeObjectURL(tempVideoUrl);
-          chunksRef.current = [];
-          stopTimer();
-        };
-        
-        tempVideo.onerror = async (e) => {
-          console.error('Error loading video metadata:', e);
-          // Fallback to using recorded time
-          await uploadRecording(
-            chunksRef.current,
-            setLoading,
-            setIsRecording,
-            setRecordingTime
-          );
-          chunksRef.current = [];
-          stopTimer();
-        };
-        
-        tempVideo.load();
+          tempVideo.onerror = async () => {
+            console.error('Error loading video metadata, using recordingDuration instead');
+            // Fallback to using recorded time
+            await uploadRecording(
+              chunksRef.current,
+              setLoading,
+              setIsRecording,
+              setRecordingTime,
+              recordingDuration
+            );
+            
+            URL.revokeObjectURL(tempVideoUrl);
+            chunksRef.current = [];
+            stopTimer();
+          };
+          
+          tempVideo.src = tempVideoUrl;
+          tempVideo.load();
+        }, 100); // Small delay to prevent UI blocking
       };
 
       console.log('Starting MediaRecorder');
-      mediaRecorderRef.current.start(1000);
+      // Request data chunks at shorter intervals to better handle memory
+      mediaRecorderRef.current.start(500);
       setIsRecording(true);
       startTimer();
 
@@ -181,7 +193,25 @@ const VideoRecorder: React.FC = () => {
     if (mediaRecorderRef.current && isRecording) {
       console.log('Stopping recording');
       mediaRecorderRef.current.stop();
-      // uploadRecording will be called from mediaRecorder.onstop event
+      // Set initial progress to indicate upload is starting
+      setUploadProgress(5);
+      // Simulate upload progress to give user feedback
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          const newProgress = prev + 5;
+          if (newProgress >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return newProgress;
+        });
+      }, 300);
+      
+      // Clear this interval after a timeout - upload should be done
+      setTimeout(() => {
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+      }, 10000);
     }
   };
 
@@ -218,13 +248,22 @@ const VideoRecorder: React.FC = () => {
               gpsAccuracy={gpsAccuracy}
               cameraPermission={cameraPermission}
             />
+            
+            {loading && uploadProgress > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Uploading video: {uploadProgress}%</div>
+                <Progress value={uploadProgress} className="h-2" />
+              </div>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">
           <div className="text-sm text-muted-foreground">
             {isRecording
               ? 'Recording in progress...'
-              : 'Ready to record'}
+              : loading 
+                ? 'Processing and uploading...'
+                : 'Ready to record'}
           </div>
           <VideoStatus
             isRecording={isRecording}
