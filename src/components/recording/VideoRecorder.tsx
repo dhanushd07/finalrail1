@@ -42,7 +42,7 @@ const VideoRecorder: React.FC = () => {
     selectedCamera,
     setSelectedCamera,
     cameraPermission,
-    error
+    error: cameraError
   } = useCamera();
 
   const {
@@ -51,7 +51,9 @@ const VideoRecorder: React.FC = () => {
     gpsLogRef,
     startGpsTracking,
     stopGpsTracking,
-    generateGpsLogContent
+    generateGpsLogContent,
+    hasGpsError,
+    gpsErrorMessage
   } = useGPS();
 
   useCameraSetup({
@@ -65,7 +67,9 @@ const VideoRecorder: React.FC = () => {
     user,
     gpsLogRef,
     stopGpsTracking,
-    generateGpsLogContent
+    generateGpsLogContent,
+    hasGpsError,
+    gpsErrorMessage
   });
 
   const handleStartRecording = async () => {
@@ -169,10 +173,17 @@ const VideoRecorder: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {error && (
+          {cameraError && (
             <div className="mb-4 flex items-center bg-red-100 text-red-700 p-2 rounded">
               <AlertCircle className="h-4 w-4 mr-2" />
-              <span>{error}</span>
+              <span>{cameraError}</span>
+            </div>
+          )}
+
+          {!isRecording && hasGpsError && (
+            <div className="mb-4 flex items-center bg-yellow-100 text-yellow-700 p-2 rounded">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              <span>GPS Warning: {gpsErrorMessage || 'Issues with GPS tracking'}. Your video may have limited or no location data.</span>
             </div>
           )}
 
@@ -205,7 +216,7 @@ const VideoRecorder: React.FC = () => {
             loading={loading}
             selectedCamera={selectedCamera}
             cameraPermission={cameraPermission}
-            error={error}
+            error={cameraError}
             startRecording={handleStartRecording}
             stopRecording={handleStopRecording}
           />

@@ -10,13 +10,17 @@ interface UseVideoUploadParams {
   gpsLogRef: MutableRefObject<GPSCoordinate[]>;
   stopGpsTracking: () => void;
   generateGpsLogContent: (durationSeconds: number) => string;
+  hasGpsError?: boolean;
+  gpsErrorMessage?: string | null;
 }
 
 export function useVideoUpload({ 
   user, 
   gpsLogRef, 
   stopGpsTracking, 
-  generateGpsLogContent 
+  generateGpsLogContent,
+  hasGpsError,
+  gpsErrorMessage 
 }: UseVideoUploadParams) {
   const { toast } = useToast();
 
@@ -56,11 +60,27 @@ export function useVideoUpload({
       
       // Ensure we have at least 1 second of video duration
       const finalDuration = Math.max(1, recordingDuration);
-      console.log(`Processing ${gpsLogRef.current.length} GPS coordinates for ${finalDuration} second video`);
       
       // Generate GPS log content with seconds from 1 to video duration
       const gpsLogContent = generateGpsLogContent(finalDuration);
       console.log(`GPS log content length: ${gpsLogContent.length} characters`);
+      
+      // Check if we had GPS errors but still generated GPS data
+      if (hasGpsError && gpsLogRef.current.length > 0) {
+        toast({
+          title: 'GPS Warning',
+          description: `GPS had some issues: ${gpsErrorMessage || 'Unknown error'}. Limited location data included.`,
+          variant: 'default',
+        });
+      }
+      // If we had GPS errors and no GPS data was collected
+      else if (hasGpsError && gpsLogRef.current.length === 0) {
+        toast({
+          title: 'GPS Error',
+          description: `No GPS data collected: ${gpsErrorMessage || 'Unknown error'}. Video will not have location data.`,
+          variant: 'default',
+        });
+      }
       
       const gpsLogBlob = new Blob([gpsLogContent], { type: 'text/csv' });
 
@@ -104,7 +124,7 @@ export function useVideoUpload({
       stopGpsTracking();
       setLoading(false);
     }
-  }, [user, generateGpsLogContent, stopGpsTracking, toast]);
+  }, [user, generateGpsLogContent, stopGpsTracking, toast, hasGpsError, gpsErrorMessage, gpsLogRef]);
 
   return { uploadRecording };
 }

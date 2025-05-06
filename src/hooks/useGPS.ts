@@ -9,24 +9,32 @@ interface UseGPSReturn {
   startGpsTracking: () => boolean;
   stopGpsTracking: () => void;
   generateGpsLogContent: (durationSeconds: number) => string;
+  hasGpsError: boolean;
+  gpsErrorMessage: string | null;
 }
 
 export const useGPS = (): UseGPSReturn => {
   const [gpsEnabled, setGpsEnabled] = useState<boolean>(false);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [hasGpsError, setHasGpsError] = useState<boolean>(false);
+  const [gpsErrorMessage, setGpsErrorMessage] = useState<string | null>(null);
   const gpsLogRef = useRef<GPSCoordinate[]>([]);
   const gpsWatchIdRef = useRef<number | null>(null);
   const recordingStartTimeRef = useRef<number | null>(null);
 
   const startGpsTracking = useCallback(() => {
     if (!navigator.geolocation) {
+      setHasGpsError(true);
+      setGpsErrorMessage('Geolocation is not supported by your browser');
       console.error('Geolocation is not supported by your browser');
       return false;
     }
     
-    // Clear previous GPS data
+    // Clear previous GPS data and errors
     gpsLogRef.current = [];
     recordingStartTimeRef.current = Date.now();
+    setHasGpsError(false);
+    setGpsErrorMessage(null);
     
     console.log('Starting GPS tracking');
     
@@ -50,12 +58,29 @@ export const useGPS = (): UseGPSReturn => {
         },
         (error) => {
           console.error('Initial GPS error:', error);
+          setHasGpsError(true);
+          
+          // Set specific error message based on error code
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              setGpsErrorMessage('GPS permission denied');
+              break;
+            case error.POSITION_UNAVAILABLE:
+              setGpsErrorMessage('GPS position unavailable');
+              break;
+            case error.TIMEOUT:
+              setGpsErrorMessage('GPS request timed out');
+              break;
+            default:
+              setGpsErrorMessage('Unknown GPS error');
+          }
+          
           // Continue even if initial position fails
           setGpsEnabled(true);
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000, // Increased timeout
+          timeout: 10000, 
           maximumAge: 0
         }
       );
@@ -84,14 +109,37 @@ export const useGPS = (): UseGPSReturn => {
           
           setGpsAccuracy(accuracy);
           setGpsEnabled(true);
+          
+          // If we had an error before but now we're getting data, clear the error
+          if (hasGpsError) {
+            setHasGpsError(false);
+            setGpsErrorMessage(null);
+          }
         },
         (error) => {
-          console.error('GPS error:', error);
+          console.error('GPS watch error:', error);
+          setHasGpsError(true);
+          
+          // Set specific error message based on error code
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              setGpsErrorMessage('GPS permission denied');
+              break;
+            case error.POSITION_UNAVAILABLE:
+              setGpsErrorMessage('GPS position unavailable');
+              break;
+            case error.TIMEOUT:
+              setGpsErrorMessage('GPS request timed out');
+              break;
+            default:
+              setGpsErrorMessage('Unknown GPS error');
+          }
+          
           // Don't disable GPS tracking on errors, just log them
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000, // Increased timeout
+          timeout: 10000,
           maximumAge: 0
         }
       );
@@ -99,9 +147,11 @@ export const useGPS = (): UseGPSReturn => {
       return true;
     } catch (e) {
       console.error('Error setting up GPS tracking:', e);
+      setHasGpsError(true);
+      setGpsErrorMessage('Failed to start GPS tracking');
       return false;
     }
-  }, []);
+  }, [hasGpsError]);
 
   const stopGpsTracking = useCallback(() => {
     if (gpsWatchIdRef.current) {
@@ -113,52 +163,46 @@ export const useGPS = (): UseGPSReturn => {
     console.log(`Collected ${gpsLogRef.current.length} GPS coordinates`);
   }, []);
 
-  // Updated function to generate CSV with seconds from 1 to video duration
   const generateGpsLogContent = useCallback((durationSeconds: number) => {
     const header = 'second,latitude,longitude,accuracy';
     console.log(`Generating GPS log for ${durationSeconds} second video`);
-    
-    // Ensure we have at least one coordinate
-    if (gpsLogRef.current.length === 0) {
-      console.warn('No GPS coordinates collected, using default values');
-      
-      // If no GPS data was collected, create a default entry
-      const defaultCoord = {
-        second: 0,
-        latitude: 0,
-        longitude: 0,
-        accuracy: 0
-      };
-      
-      gpsLogRef.current.push(defaultCoord);
-    }
     
     // Ensure durationSeconds is at least 1
     durationSeconds = Math.max(1, durationSeconds);
     
     // Create an array with seconds from 1 to durationSeconds
     const rows = [];
-    for (let second = 1; second <= durationSeconds; second++) {
-      // Find the closest GPS coordinate to this second
-      let closestCoord = null;
-      let smallestTimeDiff = Infinity;
-      
-      for (const coord of gpsLogRef.current) {
-        const timeDiff = Math.abs(coord.second - second);
-        if (timeDiff < smallestTimeDiff) {
-          smallestTimeDiff = timeDiff;
-          closestCoord = coord;
+    
+    // If we have GPS data, use it to create rows
+    if (gpsLogRef.current.length > 0) {
+      for (let second = 1; second <= durationSeconds; second++) {
+        // Find the closest GPS coordinate to this second
+        let closestCoord = null;
+        let smallestTimeDiff = Infinity;
+        
+        for (const coord of gpsLogRef.current) {
+          const timeDiff = Math.abs(coord.second - second);
+          if (timeDiff < smallestTimeDiff) {
+            smallestTimeDiff = timeDiff;
+            closestCoord = coord;
+          }
+        }
+        
+        // If we found a coordinate, use it
+        if (closestCoord) {
+          rows.push(`${second},${closestCoord.latitude},${closestCoord.longitude},${closestCoord.accuracy || 0}`);
+        } else {
+          // If no close match, use the last known position
+          const lastCoord = gpsLogRef.current[gpsLogRef.current.length - 1];
+          rows.push(`${second},${lastCoord.latitude},${lastCoord.longitude},${lastCoord.accuracy || 0}`);
         }
       }
-      
-      // If we found a coordinate, use it
-      if (closestCoord) {
-        rows.push(`${second},${closestCoord.latitude},${closestCoord.longitude},${closestCoord.accuracy || 0}`);
-      } else if (gpsLogRef.current.length > 0) {
-        // If no close match, use the last known position
-        const lastCoord = gpsLogRef.current[gpsLogRef.current.length - 1];
-        rows.push(`${second},${lastCoord.latitude},${lastCoord.longitude},${lastCoord.accuracy || 0}`);
+    } else {
+      // If no GPS data was collected, report that in the log with zeros
+      for (let second = 1; second <= durationSeconds; second++) {
+        rows.push(`${second},0,0,0`);
       }
+      console.warn('No GPS coordinates collected, using default values (0,0) for all seconds');
     }
     
     const content = [header, ...rows].join('\n');
@@ -172,6 +216,8 @@ export const useGPS = (): UseGPSReturn => {
     gpsLogRef,
     startGpsTracking,
     stopGpsTracking,
-    generateGpsLogContent
+    generateGpsLogContent,
+    hasGpsError,
+    gpsErrorMessage
   };
 };
