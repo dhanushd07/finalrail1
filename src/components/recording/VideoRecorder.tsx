@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Camera, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +31,8 @@ const VideoRecorder: React.FC = () => {
     mediaRecorderRef,
     chunksRef,
     startTimer,
-    stopTimer
+    stopTimer,
+    getRecordingDuration
   } = useVideoRecording();
 
   const [loading, setLoading] = useState<boolean>(false);
@@ -83,7 +84,6 @@ const VideoRecorder: React.FC = () => {
       toast({
         title: 'GPS Warning',
         description: 'GPS tracking could not be started. Location data may be limited.',
-        // Change from 'warning' to 'default' as 'warning' is not a valid variant
         variant: 'default',
       });
       // Continue anyway - don't return
@@ -92,13 +92,14 @@ const VideoRecorder: React.FC = () => {
     try {
       const stream = videoRef.current.srcObject as MediaStream;
       const options = { 
-        mimeType: 'video/webm;codecs=vp9,opus'
+        mimeType: 'video/webm;codecs=vp9,opus',
+        videoBitsPerSecond: 500000 // Lower bitrate for better performance
       };
       
       // Try the specified mime type first
       if (MediaRecorder.isTypeSupported(options.mimeType)) {
         mediaRecorderRef.current = new MediaRecorder(stream, options);
-        console.log(`Using ${options.mimeType} for recording`);
+        console.log(`Using ${options.mimeType} for recording with ${options.videoBitsPerSecond}bps`);
       } else {
         // Fallback to browser default
         console.log(`${options.mimeType} not supported, using browser default`);
@@ -116,11 +117,15 @@ const VideoRecorder: React.FC = () => {
 
       mediaRecorderRef.current.onstop = async () => {
         console.log(`Recording stopped with ${chunksRef.current.length} chunks collected`);
+        const finalDuration = getRecordingDuration();
+        console.log(`Final recording duration: ${finalDuration} seconds`);
+        
         await uploadRecording(
           chunksRef.current,
           setLoading,
           setIsRecording,
-          setRecordingTime
+          setRecordingTime,
+          finalDuration
         );
         chunksRef.current = [];
         stopTimer();

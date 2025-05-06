@@ -8,7 +8,7 @@ interface UseGPSReturn {
   gpsLogRef: React.MutableRefObject<GPSCoordinate[]>;
   startGpsTracking: () => boolean;
   stopGpsTracking: () => void;
-  generateGpsLogContent: () => string;
+  generateGpsLogContent: (durationSeconds: number) => string;
 }
 
 export const useGPS = (): UseGPSReturn => {
@@ -113,31 +113,56 @@ export const useGPS = (): UseGPSReturn => {
     console.log(`Collected ${gpsLogRef.current.length} GPS coordinates`);
   }, []);
 
-  // Add a function to generate CSV content for the GPS log
-  const generateGpsLogContent = useCallback(() => {
+  // Updated function to generate CSV with seconds from 1 to video duration
+  const generateGpsLogContent = useCallback((durationSeconds: number) => {
     const header = 'second,latitude,longitude,accuracy';
+    console.log(`Generating GPS log for ${durationSeconds} second video`);
     
-    // Handle empty GPS data
+    // Ensure we have at least one coordinate
     if (gpsLogRef.current.length === 0) {
-      // Add a fallback coordinate if no GPS data was collected
-      const fallbackCoord = {
+      console.warn('No GPS coordinates collected, using default values');
+      
+      // If no GPS data was collected, create a default entry
+      const defaultCoord = {
         second: 0,
         latitude: 0,
         longitude: 0,
         accuracy: 0
       };
       
-      const fallbackRow = `${fallbackCoord.second},${fallbackCoord.latitude},${fallbackCoord.longitude},${fallbackCoord.accuracy}`;
-      console.warn('No GPS coordinates collected, using fallback data');
-      return `${header}\n${fallbackRow}`;
+      gpsLogRef.current.push(defaultCoord);
     }
     
-    const rows = gpsLogRef.current.map(coord => {
-      return `${coord.second},${coord.latitude},${coord.longitude},${coord.accuracy || 0}`;
-    });
+    // Ensure durationSeconds is at least 1
+    durationSeconds = Math.max(1, durationSeconds);
+    
+    // Create an array with seconds from 1 to durationSeconds
+    const rows = [];
+    for (let second = 1; second <= durationSeconds; second++) {
+      // Find the closest GPS coordinate to this second
+      let closestCoord = null;
+      let smallestTimeDiff = Infinity;
+      
+      for (const coord of gpsLogRef.current) {
+        const timeDiff = Math.abs(coord.second - second);
+        if (timeDiff < smallestTimeDiff) {
+          smallestTimeDiff = timeDiff;
+          closestCoord = coord;
+        }
+      }
+      
+      // If we found a coordinate, use it
+      if (closestCoord) {
+        rows.push(`${second},${closestCoord.latitude},${closestCoord.longitude},${closestCoord.accuracy || 0}`);
+      } else if (gpsLogRef.current.length > 0) {
+        // If no close match, use the last known position
+        const lastCoord = gpsLogRef.current[gpsLogRef.current.length - 1];
+        rows.push(`${second},${lastCoord.latitude},${lastCoord.longitude},${lastCoord.accuracy || 0}`);
+      }
+    }
     
     const content = [header, ...rows].join('\n');
-    console.log(`Generated GPS log with ${rows.length} entries`);
+    console.log(`Generated GPS log with ${rows.length} entries, one per second`);
     return content;
   }, []);
 

@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Shield, Camera, Video, LayoutDashboard, Database, LogOut, TestTubes } from 'lucide-react';
+import { Camera, LogOut, TestTubes } from 'lucide-react';
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -20,8 +20,11 @@ const Header = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">RailTrack Vision AI</span>
+          <img 
+            src="/lovable-uploads/ed011188-d039-470c-8a6e-53f000bd6f8d.png" 
+            alt="tracksense logo" 
+            className="h-10" 
+          />
         </Link>
         
         {user ? (
@@ -30,14 +33,6 @@ const Header = () => {
               <Link to="/record" className="flex items-center gap-1 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md">
                 <Camera className="h-4 w-4" />
                 Record
-              </Link>
-              <Link to="/process" className="flex items-center gap-1 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md">
-                <Video className="h-4 w-4" />
-                Process
-              </Link>
-              <Link to="/dashboard" className="flex items-center gap-1 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md">
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
               </Link>
               <Link to="/model-test" className="flex items-center gap-1 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md">
                 <TestTubes className="h-4 w-4" />
