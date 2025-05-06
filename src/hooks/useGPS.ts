@@ -118,6 +118,24 @@ export const useGPS = (): UseGPSReturn => {
     const header = 'second,latitude,longitude,accuracy';
     console.log(`Generating GPS log for ${durationSeconds} second video`);
     
+    // Ensure we have at least one coordinate
+    if (gpsLogRef.current.length === 0) {
+      console.warn('No GPS coordinates collected, using default values');
+      
+      // If no GPS data was collected, create a default entry
+      const defaultCoord = {
+        second: 0,
+        latitude: 0,
+        longitude: 0,
+        accuracy: 0
+      };
+      
+      gpsLogRef.current.push(defaultCoord);
+    }
+    
+    // Ensure durationSeconds is at least 1
+    durationSeconds = Math.max(1, durationSeconds);
+    
     // Create an array with seconds from 1 to durationSeconds
     const rows = [];
     for (let second = 1; second <= durationSeconds; second++) {
@@ -133,16 +151,13 @@ export const useGPS = (): UseGPSReturn => {
         }
       }
       
-      // If we found a coordinate or have a fallback
+      // If we found a coordinate, use it
       if (closestCoord) {
         rows.push(`${second},${closestCoord.latitude},${closestCoord.longitude},${closestCoord.accuracy || 0}`);
       } else if (gpsLogRef.current.length > 0) {
         // If no close match, use the last known position
         const lastCoord = gpsLogRef.current[gpsLogRef.current.length - 1];
         rows.push(`${second},${lastCoord.latitude},${lastCoord.longitude},${lastCoord.accuracy || 0}`);
-      } else {
-        // Absolute fallback with zeros
-        rows.push(`${second},0,0,0`);
       }
     }
     

@@ -54,9 +54,12 @@ export function useVideoUpload({
 
       if (!user) throw new Error('User not authenticated');
       
+      // Ensure we have at least 1 second of video duration
+      const finalDuration = Math.max(1, recordingDuration);
+      console.log(`Processing ${gpsLogRef.current.length} GPS coordinates for ${finalDuration} second video`);
+      
       // Generate GPS log content with seconds from 1 to video duration
-      console.log(`Processing ${gpsLogRef.current.length} GPS coordinates for ${recordingDuration} second video`);
-      const gpsLogContent = generateGpsLogContent(recordingDuration);
+      const gpsLogContent = generateGpsLogContent(finalDuration);
       console.log(`GPS log content length: ${gpsLogContent.length} characters`);
       
       const gpsLogBlob = new Blob([gpsLogContent], { type: 'text/csv' });

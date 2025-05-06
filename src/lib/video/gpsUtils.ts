@@ -61,11 +61,13 @@ export const matchFrameToGPS = (
     return undefined;
   }
 
+  // Try to find exact match by second
   const exactMatch = gpsCoordinates.find(coord => coord.second === frameSecond);
   if (exactMatch) {
     return exactMatch;
   }
 
+  // Find closest coordinate by second
   let closestCoordinate: GPSCoordinate | null = null;
   let smallestSecondDiff = Infinity;
 
@@ -78,6 +80,7 @@ export const matchFrameToGPS = (
     }
   }
 
+  // Only return if within acceptable time difference (5 seconds)
   if (closestCoordinate && smallestSecondDiff <= 5) {
     return closestCoordinate;
   }

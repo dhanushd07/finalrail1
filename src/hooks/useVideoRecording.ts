@@ -20,12 +20,16 @@ export function useVideoRecording(): UseVideoRecordingReturn {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const startTimeRef = useRef<number | null>(null);
 
   const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     
+    startTimeRef.current = Date.now();
+    
     timerRef.current = setInterval(() => {
-      setRecordingTime(prev => prev + 1);
+      const elapsedSeconds = Math.floor((Date.now() - (startTimeRef.current || Date.now())) / 1000);
+      setRecordingTime(elapsedSeconds);
     }, 1000);
   }, []);
 
@@ -34,10 +38,12 @@ export function useVideoRecording(): UseVideoRecordingReturn {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    startTimeRef.current = null;
   }, []);
 
   const getRecordingDuration = useCallback(() => {
-    return recordingTime;
+    // Return at least 1 second if recording time is 0
+    return Math.max(1, recordingTime);
   }, [recordingTime]);
 
   return {
