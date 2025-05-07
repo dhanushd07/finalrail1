@@ -1,4 +1,3 @@
-
 import { GPSCoordinate } from '@/types';
 
 /**
@@ -92,4 +91,71 @@ export const matchFrameToGPS = (
   }
 
   return undefined;
+};
+
+/**
+ * Ensure we have GPS coordinates for every second of video
+ */
+export const ensureCompleteGPSData = (
+  coordinates: GPSCoordinate[],
+  durationSeconds: number
+): GPSCoordinate[] => {
+  // If no coordinates provided, return empty array
+  if (!coordinates || coordinates.length === 0) {
+    return [];
+  }
+  
+  const result: GPSCoordinate[] = [];
+  
+  // Sort coordinates by second
+  const sortedCoords = [...coordinates].sort((a, b) => a.second - b.second);
+  
+  // For each second of the video
+  for (let second = 1; second <= durationSeconds; second++) {
+    // Look for exact match
+    const exactMatch = sortedCoords.find(c => c.second === second);
+    if (exactMatch) {
+      result.push(exactMatch);
+      continue;
+    }
+    
+    // Find coordinates before and after this second
+    const before = sortedCoords.filter(c => c.second < second).sort((a, b) => b.second - a.second)[0];
+    const after = sortedCoords.filter(c => c.second > second).sort((a, b) => a.second - b.second)[0];
+    
+    // If we have both before and after, interpolate
+    if (before && after) {
+      const ratio = (second - before.second) / (after.second - before.second);
+      const latitude = before.latitude + ratio * (after.latitude - before.latitude);
+      const longitude = before.longitude + ratio * (after.longitude - before.longitude);
+      const accuracy = before.accuracy || 0;
+      
+      result.push({
+        second,
+        latitude,
+        longitude,
+        accuracy
+      });
+    }
+    // Otherwise use the closest one
+    else if (before) {
+      result.push({
+        second,
+        latitude: before.latitude,
+        longitude: before.longitude,
+        accuracy: before.accuracy
+      });
+    }
+    else if (after) {
+      result.push({
+        second,
+        latitude: after.latitude,
+        longitude: after.longitude,
+        accuracy: after.accuracy
+      });
+    }
+    // Should not happen given our checks at the beginning
+  }
+  
+  return result;
 };
