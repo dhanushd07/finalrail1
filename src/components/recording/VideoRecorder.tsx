@@ -1,15 +1,15 @@
 
-import React, { useRef, useState, useEffect } from 'react';
-import { Camera, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import React, { useRef, useState } from 'react';
+import { Camera } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import CameraSelect from './CameraSelect';
 import VideoPreview from './VideoPreview';
 import { useGPS } from '@/hooks/useGPS';
 import { useCamera } from '@/hooks/useCamera';
-import VideoStatus from './VideoStatus';
 import RecordingInstructions from './RecordingInstructions';
+import RecordingWarnings from './RecordingWarnings';
+import RecordingControls from './RecordingControls';
 
 import { useVideoRecording } from '@/hooks/useVideoRecording';
 import { useCameraSetup } from '@/hooks/useCameraSetup';
@@ -17,8 +17,6 @@ import { useVideoUpload } from '@/hooks/useVideoUpload';
 
 const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-
   const videoRef = useRef<HTMLVideoElement>(null);
   
   // Custom hooks for logical separation
@@ -60,7 +58,12 @@ const VideoRecorder: React.FC = () => {
     selectedCamera,
     videoRef,
     isRecording,
-    stopRecording: () => handleStopRecording(),
+    stopRecording: () => {
+      if (mediaRecorderRef.current && isRecording) {
+        console.log('Stopping recording from cameraSetup');
+        mediaRecorderRef.current.stop();
+      }
+    },
   });
 
   const { uploadRecording } = useVideoUpload({
@@ -72,97 +75,6 @@ const VideoRecorder: React.FC = () => {
     gpsErrorMessage
   });
 
-  const handleStartRecording = async () => {
-    if (!videoRef.current?.srcObject) {
-      toast({
-        title: 'Error',
-        description: 'Camera not initialized',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const gpsStarted = startGpsTracking();
-    if (!gpsStarted) {
-      console.warn('GPS tracking could not be started, continuing without GPS');
-      toast({
-        title: 'GPS Warning',
-        description: 'GPS tracking could not be started. Location data may be limited.',
-        variant: 'default',
-      });
-      // Continue anyway - don't return
-    }
-
-    try {
-      const stream = videoRef.current.srcObject as MediaStream;
-      const options = { 
-        mimeType: 'video/webm;codecs=vp9,opus',
-        videoBitsPerSecond: 500000 // Lower bitrate for better performance
-      };
-      
-      // Try the specified mime type first
-      if (MediaRecorder.isTypeSupported(options.mimeType)) {
-        mediaRecorderRef.current = new MediaRecorder(stream, options);
-        console.log(`Using ${options.mimeType} for recording with ${options.videoBitsPerSecond}bps`);
-      } else {
-        // Fallback to browser default
-        console.log(`${options.mimeType} not supported, using browser default`);
-        mediaRecorderRef.current = new MediaRecorder(stream);
-      }
-
-      chunksRef.current = [];
-
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-          console.log(`Received data chunk: ${event.data.size} bytes`);
-        }
-      };
-
-      mediaRecorderRef.current.onstop = async () => {
-        console.log(`Recording stopped with ${chunksRef.current.length} chunks collected`);
-        const finalDuration = getRecordingDuration();
-        console.log(`Final recording duration: ${finalDuration} seconds`);
-        
-        await uploadRecording(
-          chunksRef.current,
-          setLoading,
-          setIsRecording,
-          setRecordingTime,
-          finalDuration
-        );
-        chunksRef.current = [];
-        stopTimer();
-      };
-
-      console.log('Starting MediaRecorder');
-      mediaRecorderRef.current.start(1000);
-      setIsRecording(true);
-      startTimer();
-
-      toast({
-        title: 'Recording started',
-        description: gpsStarted ? 'GPS tracking is active. Recording in progress.' : 'Recording in progress without GPS.',
-      });
-    } catch (err) {
-      console.error('Error starting recording:', err);
-      toast({
-        title: 'Recording Error',
-        description: 'Failed to start recording',
-        variant: 'destructive',
-      });
-      stopGpsTracking();
-    }
-  };
-
-  const handleStopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      console.log('Stopping recording');
-      mediaRecorderRef.current.stop();
-      // uploadRecording will be called from mediaRecorder.onstop event
-    }
-  };
-
   return (
     <div className="flex flex-col items-center space-y-6 max-w-3xl mx-auto">
       <Card className="w-full">
@@ -173,19 +85,12 @@ const VideoRecorder: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {cameraError && (
-            <div className="mb-4 flex items-center bg-red-100 text-red-700 p-2 rounded">
-              <AlertCircle className="h-4 w-4 mr-2" />
-              <span>{cameraError}</span>
-            </div>
-          )}
-
-          {!isRecording && hasGpsError && (
-            <div className="mb-4 flex items-center bg-yellow-100 text-yellow-700 p-2 rounded">
-              <AlertCircle className="h-4 w-4 mr-2" />
-              <span>GPS Warning: {gpsErrorMessage || 'Issues with GPS tracking'}. Your video may have limited or no location data.</span>
-            </div>
-          )}
+          <RecordingWarnings 
+            cameraError={cameraError}
+            isRecording={isRecording}
+            hasGpsError={hasGpsError}
+            gpsErrorMessage={gpsErrorMessage}
+          />
 
           <div className="space-y-4">
             <CameraSelect
@@ -211,14 +116,24 @@ const VideoRecorder: React.FC = () => {
               ? 'Recording in progress...'
               : 'Ready to record'}
           </div>
-          <VideoStatus
+          <RecordingControls
+            videoRef={videoRef}
             isRecording={isRecording}
             loading={loading}
             selectedCamera={selectedCamera}
             cameraPermission={cameraPermission}
-            error={cameraError}
-            startRecording={handleStartRecording}
-            stopRecording={handleStopRecording}
+            cameraError={cameraError}
+            mediaRecorderRef={mediaRecorderRef}
+            chunksRef={chunksRef}
+            startGpsTracking={startGpsTracking}
+            startTimer={startTimer}
+            setIsRecording={setIsRecording}
+            stopGpsTracking={stopGpsTracking}
+            stopTimer={stopTimer}
+            uploadRecording={uploadRecording}
+            setLoading={setLoading}
+            setRecordingTime={setRecordingTime}
+            getRecordingDuration={getRecordingDuration}
           />
         </CardFooter>
       </Card>

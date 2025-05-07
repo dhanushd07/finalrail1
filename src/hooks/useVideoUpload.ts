@@ -63,6 +63,16 @@ export function useVideoUpload({
       const finalDuration = Math.max(1, recordingDuration);
       console.log(`Final video duration for GPS log: ${finalDuration} seconds`);
       
+      // Debug log about GPS data being used
+      console.log(`GPS data before generating log: ${gpsLogRef.current.length} points`);
+      if (gpsLogRef.current.length > 0) {
+        console.log(`First GPS point: second=${gpsLogRef.current[0].second}, lat=${gpsLogRef.current[0].latitude}, lng=${gpsLogRef.current[0].longitude}`);
+        if (gpsLogRef.current.length > 1) {
+          const last = gpsLogRef.current[gpsLogRef.current.length - 1];
+          console.log(`Last GPS point: second=${last.second}, lat=${last.latitude}, lng=${last.longitude}`);
+        }
+      }
+      
       // Generate GPS log content for each second of the video duration
       const gpsLogContent = generateGpsLogContent(finalDuration);
       console.log(`GPS log content length: ${gpsLogContent.length} characters`);

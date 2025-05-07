@@ -106,20 +106,27 @@ export const ensureCompleteGPSData = (
 ): GPSCoordinate[] => {
   // If no coordinates provided, return empty array
   if (!coordinates || coordinates.length === 0) {
+    console.warn("No GPS coordinates available, returning empty array");
     return [];
   }
   
-  console.log(`Ensuring complete GPS data for ${durationSeconds} seconds with ${coordinates.length} coordinates`);
+  console.log(`Ensuring complete GPS data for ${durationSeconds} seconds with ${coordinates.length} raw coordinates`);
+
+  // Debug log the raw coordinates
+  coordinates.forEach((coord, i) => {
+    console.log(`Raw GPS coordinate ${i}: second=${coord.second}, lat=${coord.latitude}, lng=${coord.longitude}`);
+  });
   
   const result: GPSCoordinate[] = [];
   
   // Sort coordinates by second
   const sortedCoords = [...coordinates].sort((a, b) => a.second - b.second);
   
-  // For each second of the video
+  // For each second of the video - IMPORTANT: start from 1 for the CSV file
   for (let second = 1; second <= durationSeconds; second++) {
     // Look for exact match
     const exactMatch = sortedCoords.find(c => c.second === second);
+    
     if (exactMatch) {
       console.log(`Second ${second}: Using exact GPS match`);
       result.push(exactMatch);
@@ -164,7 +171,7 @@ export const ensureCompleteGPSData = (
         accuracy: after.accuracy
       });
     }
-    // Use first coordinate as fallback (should not happen given our checks at the beginning)
+    // If there's no GPS data at all but we know we have some coordinates, use the first one as fallback
     else if (sortedCoords.length > 0) {
       console.log(`Second ${second}: Using fallback GPS from first coordinate`);
       const firstCoord = sortedCoords[0];
@@ -175,8 +182,24 @@ export const ensureCompleteGPSData = (
         accuracy: firstCoord.accuracy
       });
     }
+    // In the very unlikely case we reach here (should never happen if we check length at start)
+    else {
+      console.error(`Second ${second}: No GPS data available at all, using (0,0)`);
+      result.push({
+        second,
+        latitude: 0,
+        longitude: 0,
+        accuracy: 0
+      });
+    }
   }
   
   console.log(`Generated ${result.length} GPS coordinates, one for each second of video`);
+  
+  // Debug log the final result
+  result.forEach((coord, i) => {
+    console.log(`Final GPS coordinate ${i}: second=${coord.second}, lat=${coord.latitude}, lng=${coord.longitude}`);
+  });
+  
   return result;
 };
