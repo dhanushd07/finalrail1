@@ -1,3 +1,4 @@
+
 import { GPSCoordinate } from '@/types';
 
 /**
@@ -94,7 +95,10 @@ export const matchFrameToGPS = (
 };
 
 /**
- * Ensure we have GPS coordinates for every second of video
+ * Ensure we have GPS coordinates for every second of video by:
+ * 1. Using exact GPS data if available
+ * 2. Interpolating between known points
+ * 3. Reusing the same coordinates for consecutive seconds if GPS didn't change
  */
 export const ensureCompleteGPSData = (
   coordinates: GPSCoordinate[],
@@ -104,6 +108,8 @@ export const ensureCompleteGPSData = (
   if (!coordinates || coordinates.length === 0) {
     return [];
   }
+  
+  console.log(`Ensuring complete GPS data for ${durationSeconds} seconds with ${coordinates.length} coordinates`);
   
   const result: GPSCoordinate[] = [];
   
@@ -115,6 +121,7 @@ export const ensureCompleteGPSData = (
     // Look for exact match
     const exactMatch = sortedCoords.find(c => c.second === second);
     if (exactMatch) {
+      console.log(`Second ${second}: Using exact GPS match`);
       result.push(exactMatch);
       continue;
     }
@@ -130,6 +137,7 @@ export const ensureCompleteGPSData = (
       const longitude = before.longitude + ratio * (after.longitude - before.longitude);
       const accuracy = before.accuracy || 0;
       
+      console.log(`Second ${second}: Interpolating between seconds ${before.second} and ${after.second}`);
       result.push({
         second,
         latitude,
@@ -139,6 +147,7 @@ export const ensureCompleteGPSData = (
     }
     // Otherwise use the closest one
     else if (before) {
+      console.log(`Second ${second}: Using latest GPS from second ${before.second} (no change in coordinates)`);
       result.push({
         second,
         latitude: before.latitude,
@@ -147,6 +156,7 @@ export const ensureCompleteGPSData = (
       });
     }
     else if (after) {
+      console.log(`Second ${second}: Using earliest GPS from second ${after.second} (no earlier data available)`);
       result.push({
         second,
         latitude: after.latitude,
@@ -154,8 +164,19 @@ export const ensureCompleteGPSData = (
         accuracy: after.accuracy
       });
     }
-    // Should not happen given our checks at the beginning
+    // Use first coordinate as fallback (should not happen given our checks at the beginning)
+    else if (sortedCoords.length > 0) {
+      console.log(`Second ${second}: Using fallback GPS from first coordinate`);
+      const firstCoord = sortedCoords[0];
+      result.push({
+        second,
+        latitude: firstCoord.latitude,
+        longitude: firstCoord.longitude,
+        accuracy: firstCoord.accuracy
+      });
+    }
   }
   
+  console.log(`Generated ${result.length} GPS coordinates, one for each second of video`);
   return result;
 };

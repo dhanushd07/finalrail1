@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { GPSCoordinate } from '@/types';
+import { ensureCompleteGPSData } from '@/lib/video/gpsUtils';
 
 interface UseGPSReturn {
   gpsEnabled: boolean;
@@ -169,74 +170,19 @@ export const useGPS = (): UseGPSReturn => {
     // Ensure durationSeconds is at least 1
     durationSeconds = Math.max(1, durationSeconds);
     
-    // Create rows for all seconds
-    const rows = [];
+    // Create a complete dataset with one entry per second
+    const completeGpsData = ensureCompleteGPSData(gpsLogRef.current, durationSeconds);
     
-    // If we have GPS data, use it to create row for each second
-    if (gpsLogRef.current.length > 0) {
-      console.log(`Using ${gpsLogRef.current.length} collected GPS points to generate ${durationSeconds} second log`);
+    // Create rows for all seconds
+    const rows: string[] = [];
+    
+    // If we have GPS data, create a CSV row for each second
+    if (completeGpsData.length > 0) {
+      console.log(`Generated ${completeGpsData.length} GPS points for ${durationSeconds} second video`);
       
-      // For each second of the video, create a row in the CSV
-      for (let second = 1; second <= durationSeconds; second++) {
-        // Find the GPS coordinate closest to this second
-        let closestCoord = null;
-        let smallestTimeDiff = Infinity;
-        
-        for (const coord of gpsLogRef.current) {
-          const timeDiff = Math.abs(coord.second - second);
-          if (timeDiff < smallestTimeDiff) {
-            smallestTimeDiff = timeDiff;
-            closestCoord = coord;
-          }
-        }
-        
-        // If we found a coordinate within a reasonable time difference (e.g., 5 seconds)
-        if (closestCoord && smallestTimeDiff <= 5) {
-          rows.push(`${second},${closestCoord.latitude},${closestCoord.longitude},${closestCoord.accuracy || 0}`);
-          console.log(`Second ${second}: Using GPS data from second ${closestCoord.second} (diff: ${smallestTimeDiff}s)`);
-        } 
-        // If no close match was found, interpolate between known points or use the latest known point
-        else {
-          // Find coordinates before and after this second
-          const beforeCoords = gpsLogRef.current
-            .filter(coord => coord.second <= second)
-            .sort((a, b) => b.second - a.second);
-            
-          const afterCoords = gpsLogRef.current
-            .filter(coord => coord.second >= second)
-            .sort((a, b) => a.second - b.second);
-          
-          const beforeCoord = beforeCoords.length > 0 ? beforeCoords[0] : null;
-          const afterCoord = afterCoords.length > 0 ? afterCoords[0] : null;
-          
-          // If we have coordinates before and after, interpolate
-          if (beforeCoord && afterCoord && beforeCoord !== afterCoord) {
-            const totalDiff = afterCoord.second - beforeCoord.second;
-            const ratio = totalDiff === 0 ? 0 : (second - beforeCoord.second) / totalDiff;
-            
-            const lat = beforeCoord.latitude + (afterCoord.latitude - beforeCoord.latitude) * ratio;
-            const lng = beforeCoord.longitude + (afterCoord.longitude - beforeCoord.longitude) * ratio;
-            const acc = beforeCoord.accuracy || 0;
-            
-            rows.push(`${second},${lat},${lng},${acc}`);
-            console.log(`Second ${second}: Interpolated between seconds ${beforeCoord.second} and ${afterCoord.second}`);
-          } 
-          // Otherwise use the closest known coordinate
-          else if (beforeCoord) {
-            rows.push(`${second},${beforeCoord.latitude},${beforeCoord.longitude},${beforeCoord.accuracy || 0}`);
-            console.log(`Second ${second}: Using closest GPS data from second ${beforeCoord.second}`);
-          } 
-          else if (afterCoord) {
-            rows.push(`${second},${afterCoord.latitude},${afterCoord.longitude},${afterCoord.accuracy || 0}`);
-            console.log(`Second ${second}: Using closest GPS data from second ${afterCoord.second}`);
-          } 
-          else {
-            // Use the first coordinate as a fallback
-            const firstCoord = gpsLogRef.current[0];
-            rows.push(`${second},${firstCoord.latitude},${firstCoord.longitude},${firstCoord.accuracy || 0}`);
-            console.log(`Second ${second}: Using fallback GPS data from second ${firstCoord.second}`);
-          }
-        }
+      // For each second of the video, add the corresponding GPS data to the CSV
+      for (const coord of completeGpsData) {
+        rows.push(`${coord.second},${coord.latitude},${coord.longitude},${coord.accuracy || 0}`);
       }
     } else {
       // If no GPS data was collected, report that in the log with zeros
