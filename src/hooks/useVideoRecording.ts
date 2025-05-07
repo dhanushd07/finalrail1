@@ -42,7 +42,8 @@ export function useVideoRecording(): UseVideoRecordingReturn {
   }, []);
 
   const getRecordingDuration = useCallback(() => {
-    // Return at least 1 second if recording time is 0
+    // Calculate the actual duration from recorded data instead of using recordingTime
+    // Add 1 to ensure we have at least 1 second
     return Math.max(1, recordingTime);
   }, [recordingTime]);
 

@@ -1,3 +1,4 @@
+
 import { useState, useRef, useCallback } from 'react';
 import { GPSCoordinate } from '@/types';
 import { ensureCompleteGPSData } from '@/lib/video/gpsUtils';

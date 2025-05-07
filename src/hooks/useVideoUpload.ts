@@ -1,3 +1,4 @@
+
 import { useToast } from '@/hooks/use-toast';
 import { uploadFile, createVideoRecord } from '@/lib/supabase';
 import { User as SupabaseUser } from '@supabase/supabase-js';
@@ -57,11 +58,12 @@ export function useVideoUpload({
 
       if (!user) throw new Error('User not authenticated');
       
-      // Ensure we have at least 1 second of video duration
+      // Use the actual duration passed from the recording hook
+      // Make sure it's at least 1 second
       const finalDuration = Math.max(1, recordingDuration);
       console.log(`Final video duration for GPS log: ${finalDuration} seconds`);
       
-      // Generate GPS log content with seconds from 1 to video duration
+      // Generate GPS log content for each second of the video duration
       const gpsLogContent = generateGpsLogContent(finalDuration);
       console.log(`GPS log content length: ${gpsLogContent.length} characters`);
       console.log(`GPS log preview: ${gpsLogContent.substring(0, 200)}${gpsLogContent.length > 200 ? '...' : ''}`);
