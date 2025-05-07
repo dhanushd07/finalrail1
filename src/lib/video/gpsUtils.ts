@@ -32,6 +32,12 @@ export const parseGPSLog = (gpsLogContent: string): GPSCoordinate[] => {
         // Second-based format (we're standardized on this now)
         const [second, latitude, longitude, accuracy] = parts;
         
+        // Skip records with invalid coordinates (0,0)
+        if (parseFloat(latitude) === 0 && parseFloat(longitude) === 0) {
+          console.warn(`Skipping invalid GPS coordinate at second ${second}: (0,0)`);
+          continue;
+        }
+        
         coordinates.push({
           second: parseInt(second, 10),
           latitude: parseFloat(latitude),

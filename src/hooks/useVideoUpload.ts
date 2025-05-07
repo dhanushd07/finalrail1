@@ -60,10 +60,12 @@ export function useVideoUpload({
       
       // Ensure we have at least 1 second of video duration
       const finalDuration = Math.max(1, recordingDuration);
+      console.log(`Final video duration for GPS log: ${finalDuration} seconds`);
       
       // Generate GPS log content with seconds from 1 to video duration
       const gpsLogContent = generateGpsLogContent(finalDuration);
       console.log(`GPS log content length: ${gpsLogContent.length} characters`);
+      console.log(`GPS log preview: ${gpsLogContent.substring(0, 200)}${gpsLogContent.length > 200 ? '...' : ''}`);
       
       // Check if we had GPS errors but still generated GPS data
       if (hasGpsError && gpsLogRef.current.length > 0) {
