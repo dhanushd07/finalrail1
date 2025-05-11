@@ -3,21 +3,23 @@ import React, { useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVideoRecording } from '@/hooks/useVideoRecording';
+import { useCameraSetup } from '@/hooks/useCameraSetup';
+import { useVideoUpload } from '@/hooks/useVideoUpload';
+import { useCamera } from '@/hooks/useCamera';
+import { useGPS } from '@/hooks/useGPS';
+
+// Components
 import CameraSelect from './CameraSelect';
 import VideoPreview from './VideoPreview';
-import { useGPS } from '@/hooks/useGPS';
-import { useCamera } from '@/hooks/useCamera';
 import RecordingInstructions from './RecordingInstructions';
 import RecordingWarnings from './RecordingWarnings';
 import RecordingControls from './RecordingControls';
 
-import { useVideoRecording } from '@/hooks/useVideoRecording';
-import { useCameraSetup } from '@/hooks/useCameraSetup';
-import { useVideoUpload } from '@/hooks/useVideoUpload';
-
 const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [loading, setLoading] = useState<boolean>(false);
   
   // Custom hooks for logical separation
   const {
@@ -32,8 +34,6 @@ const VideoRecorder: React.FC = () => {
     stopTimer,
     getRecordingDuration
   } = useVideoRecording();
-
-  const [loading, setLoading] = useState<boolean>(false);
 
   const {
     cameras,

@@ -1,6 +1,8 @@
 
 import React from 'react';
-import { CameraOff } from 'lucide-react';
+import CameraPlaceholder from './CameraPlaceholder';
+import RecordingTimer from './RecordingTimer';
+import GpsStatus from './GpsStatus';
 
 interface VideoPreviewProps {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -19,21 +21,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   gpsAccuracy,
   cameraPermission
 }) => {
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
       {cameraPermission === false ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-gray-900">
-          <CameraOff className="h-12 w-12 mb-2 opacity-60" />
-          <p className="text-center px-4">
-            Camera access denied. Please check your browser permissions and refresh the page.
-          </p>
-        </div>
+        <CameraPlaceholder />
       ) : (
         <video
           ref={videoRef}
@@ -44,20 +35,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
         />
       )}
       
-      {isRecording && (
-        <div className="absolute top-4 left-4 flex items-center space-x-2 bg-black/70 text-white px-3 py-1 rounded-full">
-          <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
-          <span>{formatTime(recordingTime)}</span>
-        </div>
-      )}
+      <RecordingTimer 
+        isRecording={isRecording} 
+        recordingTime={recordingTime} 
+      />
       
-      {gpsEnabled && (
-        <div className="absolute top-4 right-4 flex items-center space-x-2 bg-black/70 text-white px-3 py-1 rounded-full">
-          <span className="text-xs">
-            GPS: {gpsAccuracy !== null ? `±${Math.round(gpsAccuracy)}m` : 'Connecting...'}
-          </span>
-        </div>
-      )}
+      <GpsStatus
+        gpsEnabled={gpsEnabled}
+        gpsAccuracy={gpsAccuracy}
+      />
     </div>
   );
 };
