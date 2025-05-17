@@ -110,11 +110,10 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
           finalDuration
         );
         chunksRef.current = [];
-        stopTimer();
       };
 
       console.log('Starting MediaRecorder');
-      mediaRecorderRef.current.start(1000);
+      mediaRecorderRef.current.start(1000); // Capture data every second
       setIsRecording(true);
       startTimer();
 
@@ -137,7 +136,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
     if (mediaRecorderRef.current && isRecording) {
       console.log('Stopping recording');
       mediaRecorderRef.current.stop();
-      // uploadRecording will be called from mediaRecorder.onstop event
+      stopTimer(); // Make sure we stop the timer before calculating the final duration
     }
   };
 

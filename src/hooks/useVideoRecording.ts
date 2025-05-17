@@ -28,9 +28,11 @@ export function useVideoRecording(): UseVideoRecordingReturn {
     startTimeRef.current = Date.now();
     
     timerRef.current = setInterval(() => {
-      const elapsedSeconds = Math.floor((Date.now() - (startTimeRef.current || Date.now())) / 1000);
-      setRecordingTime(elapsedSeconds);
-      console.log(`Recording time updated: ${elapsedSeconds} seconds`);
+      if (startTimeRef.current) {
+        const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        setRecordingTime(elapsedSeconds);
+        console.log(`Recording time updated: ${elapsedSeconds} seconds`);
+      }
     }, 1000);
   }, []);
 
@@ -39,14 +41,22 @@ export function useVideoRecording(): UseVideoRecordingReturn {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    startTimeRef.current = null;
+    // Don't reset startTimeRef here so we can calculate the actual duration
   }, []);
 
   const getRecordingDuration = useCallback(() => {
-    // Calculate the actual duration from recorded data instead of using recordingTime
-    // Add 1 to ensure we have at least 1 second
+    // Calculate the actual duration based on elapsed time
+    if (startTimeRef.current) {
+      const actualDuration = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      // Ensure we have at least 1 second
+      const duration = Math.max(1, actualDuration);
+      console.log(`getRecordingDuration returning ${duration} seconds (calculated from timer start)`);
+      return duration;
+    }
+    
+    // Fallback to recorded time if startTimeRef was not set
     const duration = Math.max(1, recordingTime);
-    console.log(`getRecordingDuration returning ${duration} seconds (recordingTime was ${recordingTime})`);
+    console.log(`getRecordingDuration returning ${duration} seconds (from recordingTime: ${recordingTime})`);
     return duration;
   }, [recordingTime]);
 

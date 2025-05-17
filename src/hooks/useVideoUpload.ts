@@ -58,8 +58,8 @@ export function useVideoUpload({
 
       if (!user) throw new Error('User not authenticated');
       
-      // Use the actual duration passed from the recording hook
-      // Make sure it's at least 1 second
+      // Make sure we're using the actual duration passed from the recording hook
+      // and it's at least 1 second
       const finalDuration = Math.max(1, recordingDuration);
       console.log(`Final video duration for GPS log: ${finalDuration} seconds`);
       

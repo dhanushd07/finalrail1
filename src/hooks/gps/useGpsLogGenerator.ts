@@ -21,10 +21,10 @@ export function useGpsLogGenerator(gpsLogRef: React.MutableRefObject<GPSCoordina
       }
     }
     
-    // Create a complete dataset with one entry per second
+    // Create a complete dataset with one entry per second for the entire video duration
     const completeGpsData = ensureCompleteGPSData(gpsLogRef.current, durationSeconds);
     
-    // Create rows for all seconds
+    // Create rows for all seconds of the video
     const rows: string[] = [];
     
     // If we have GPS data, create a CSV row for each second

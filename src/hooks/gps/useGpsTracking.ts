@@ -85,7 +85,7 @@ export function useGpsTracking({
         }
       );
       
-      // Start watching position
+      // Start watching position with higher frequency for better tracking
       gpsWatchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
           const { latitude, longitude, accuracy } = position.coords;
@@ -100,6 +100,7 @@ export function useGpsTracking({
           
           console.log(`GPS update at ${second}s: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
           
+          // Store this GPS coordinate with the correct second
           gpsLogRef.current.push({
             second,
             latitude,
@@ -134,12 +135,10 @@ export function useGpsTracking({
             default:
               setGpsErrorMessage('Unknown GPS error');
           }
-          
-          // Don't disable GPS tracking on errors, just log them
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 5000, // Lower timeout for faster updates
           maximumAge: 0
         }
       );
@@ -154,7 +153,7 @@ export function useGpsTracking({
   }, [gpsLogRef, setGpsEnabled, setGpsAccuracy, setHasGpsError, setGpsErrorMessage, hasGpsError]);
 
   const stopGpsTracking = useCallback(() => {
-    if (gpsWatchIdRef.current) {
+    if (gpsWatchIdRef.current !== null) {
       console.log('Stopping GPS tracking');
       navigator.geolocation.clearWatch(gpsWatchIdRef.current);
       gpsWatchIdRef.current = null;
