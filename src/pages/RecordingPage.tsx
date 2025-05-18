@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import VideoRecorder from '@/components/recording/VideoRecorder';
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
-import { UsbConnected, UsbOff } from 'lucide-react';
+import { Usb } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { toast } from '@/hooks/use-toast';
 
@@ -65,11 +65,7 @@ const RecordingPage: React.FC = () => {
     <>
       {isNative && (
         <div className="fixed top-4 left-4 z-50 p-2 bg-black/70 rounded-full">
-          {usbCameraConnected ? (
-            <UsbConnected className="h-6 w-6 text-green-400" />
-          ) : (
-            <UsbOff className="h-6 w-6 text-gray-400" />
-          )}
+          <Usb className={`h-6 w-6 ${usbCameraConnected ? 'text-green-400' : 'text-gray-400'}`} />
         </div>
       )}
       <VideoRecorder />

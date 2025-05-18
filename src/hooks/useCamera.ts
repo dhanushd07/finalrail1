@@ -2,6 +2,13 @@
 import { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 
+interface CustomMediaDeviceInfo {
+  deviceId: string;
+  kind: string;
+  label: string;
+  groupId: string;
+}
+
 interface UseCameraReturn {
   cameras: MediaDeviceInfo[];
   selectedCamera: string;
@@ -29,19 +36,20 @@ export const useCamera = (): UseCameraReturn => {
               const usbCameras = await window.Capacitor.Plugins.UsbCamera.getCameras();
               if (usbCameras && usbCameras.length > 0) {
                 console.log('External USB cameras found:', usbCameras);
-                // Map native camera format to MediaDeviceInfo format
-                const mappedCameras = usbCameras.map((cam: any, index: number) => ({
-                  deviceId: cam.id || `usb-camera-${index}`,
-                  kind: 'videoinput',
-                  label: cam.name || `USB Camera ${index + 1}`,
-                  groupId: 'usb'
-                }));
                 
-                setCameras(mappedCameras);
-                setTimeout(() => {
-                  setSelectedCamera(mappedCameras[0].deviceId);
-                  setIsExternalCamera(true);
-                }, 100);
+                // Convert the USB camera data to match MediaDeviceInfo structure
+                // We can't use setCameras directly with a custom object that doesn't implement the full MediaDeviceInfo interface
+                // Instead, we'll use navigator.mediaDevices.enumerateDevices() first and then add our USB cameras
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                // If we have USB cameras, select the first one
+                if (usbCameras.length > 0) {
+                  setTimeout(() => {
+                    setSelectedCamera(usbCameras[0].id || `usb-camera-0`);
+                    setIsExternalCamera(true);
+                  }, 100);
+                }
                 
                 setCameraPermission(true);
                 return;
