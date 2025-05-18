@@ -40,7 +40,8 @@ const VideoRecorder: React.FC = () => {
     selectedCamera,
     setSelectedCamera,
     cameraPermission,
-    error: cameraError
+    error: cameraError,
+    isExternalCamera
   } = useCamera();
 
   const {
@@ -58,6 +59,7 @@ const VideoRecorder: React.FC = () => {
     selectedCamera,
     videoRef,
     isRecording,
+    isExternalCamera,
     stopRecording: () => {
       if (mediaRecorderRef.current && isRecording) {
         console.log('Stopping recording from cameraSetup');
@@ -81,7 +83,7 @@ const VideoRecorder: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Camera className="mr-2 h-6 w-6" />
-            Video Recording
+            Video Recording {isExternalCamera ? '(USB Camera)' : ''}
           </CardTitle>
         </CardHeader>
         <CardContent>
