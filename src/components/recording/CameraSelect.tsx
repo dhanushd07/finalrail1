@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Info } from 'lucide-react';
+import { Info, Wifi } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface CameraSelectProps {
   cameras: MediaDeviceInfo[];
@@ -79,7 +80,10 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
             </SelectItem>
           ))}
           <SelectItem value="ip-camera">
-            IP Camera (ESP32-CAM)
+            <div className="flex items-center">
+              <Wifi className="mr-2 h-4 w-4" />
+              IP Camera (ESP32-CAM)
+            </div>
           </SelectItem>
         </SelectContent>
       </Select>
@@ -114,19 +118,24 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
               Connect
             </Button>
           </div>
-          <div className="space-y-1">
-            {!inputValid && (
-              <p className="text-xs text-red-500">
-                Please enter a valid URL (e.g., http://192.168.179.180)
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Enter the IP address of your ESP32-CAM (e.g., http://192.168.179.180)
+          {!inputValid && (
+            <p className="text-xs text-red-500">
+              Please enter a valid URL (e.g., http://192.168.179.180)
             </p>
-            <p className="text-xs text-muted-foreground">
-              The app will automatically append "/stream" if needed
-            </p>
-          </div>
+          )}
+          
+          <Alert>
+            <AlertDescription className="text-xs">
+              <p className="font-medium">ESP32-CAM Connection Help:</p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>Make sure your ESP32-CAM is properly powered</li>
+                <li>Ensure your device is on the same network as the ESP32-CAM</li>
+                <li>The default ESP32-CAM URL is usually: http://192.168.x.x</li>
+                <li>Some ESP32-CAMs use port 81 (e.g., http://192.168.x.x:81)</li>
+                <li>Try both /stream and /video endpoints if one doesn't work</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
         </div>
       )}
     </div>

@@ -55,6 +55,20 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
       {cameraPermission === false && !isIpCamera ? (
         <CameraPlaceholder />
+      ) : isIpCamera ? (
+        <>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+            controls
+          />
+          <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 text-xs rounded">
+            ESP32-CAM Stream
+          </div>
+        </>
       ) : (
         <video
           ref={videoRef}
@@ -62,7 +76,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           playsInline
           muted
           className="w-full h-full object-cover"
-          controls={isIpCamera} // Add controls for IP camera streams
         />
       )}
       
@@ -75,12 +88,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
         gpsEnabled={gpsEnabled}
         gpsAccuracy={gpsAccuracy}
       />
-
-      {isIpCamera && (
-        <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 text-xs rounded">
-          ESP32-CAM Stream
-        </div>
-      )}
     </div>
   );
 };

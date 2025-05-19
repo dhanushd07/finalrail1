@@ -74,7 +74,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
       return;
     }
 
-    // For IP camera, we need to create a canvas to capture frames from the video
+    // For IP camera, use canvas-based recording approach
     if (isIpCamera) {
       try {
         // Create canvas element if it doesn't exist
@@ -88,29 +88,50 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
           throw new Error('Could not get canvas context');
         }
         
-        // Make sure the video has loaded properly for ESP32 cam stream
-        if (videoRef.current.readyState === 0) {
-          // If the video hasn't loaded yet, wait for it
+        // Make sure video is ready 
+        if (!videoRef.current.readyState || videoRef.current.readyState < 2) {
           toast({
             title: 'Loading',
             description: 'Waiting for IP camera stream to load...',
           });
           
-          await new Promise<void>((resolve) => {
-            const checkVideoReady = () => {
-              if (videoRef.current?.readyState && videoRef.current.readyState > 0) {
-                resolve();
-              } else {
-                setTimeout(checkVideoReady, 500);
-              }
-            };
-            checkVideoReady();
-          });
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const checkReady = () => {
+                if (!videoRef.current) {
+                  reject(new Error('Video element not available'));
+                  return;
+                }
+                
+                if (videoRef.current.readyState >= 2) {
+                  resolve();
+                } else {
+                  setTimeout(checkReady, 500);
+                }
+              };
+              
+              const timeoutId = setTimeout(() => {
+                reject(new Error('Stream loading timeout'));
+              }, 10000); // 10 second timeout
+              
+              checkReady();
+              
+              return () => clearTimeout(timeoutId);
+            });
+          } catch (error) {
+            console.error('Error waiting for stream:', error);
+            toast({
+              title: 'Stream Error',
+              description: 'Could not load ESP32-CAM stream. Please check the connection and refresh.',
+              variant: 'destructive',
+            });
+            return;
+          }
         }
         
-        // Set canvas dimensions to match video
-        canvas.width = videoRef.current.clientWidth || 640;
-        canvas.height = videoRef.current.clientHeight || 480;
+        // Get video dimensions from the actual video
+        canvas.width = videoRef.current.videoWidth || 640;
+        canvas.height = videoRef.current.videoHeight || 480;
         
         // Create a stream from canvas
         const canvasStream = canvas.captureStream(30); // 30 fps
@@ -130,18 +151,6 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
           });
         }
         
-        // Start drawing video to canvas
-        const drawVideo = () => {
-          if (videoRef.current && ctx && isRecording) {
-            try {
-              ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-              animationFrameRef.current = requestAnimationFrame(drawVideo);
-            } catch (error) {
-              console.error('Error drawing video to canvas:', error);
-            }
-          }
-        };
-        
         // Start GPS tracking
         const gpsStarted = startGpsTracking();
         if (!gpsStarted) {
@@ -153,22 +162,37 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
           });
         }
         
+        // Drawing function to capture frames from video to canvas
+        const drawVideo = () => {
+          if (videoRef.current && ctx && isRecording) {
+            try {
+              ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+              animationFrameRef.current = requestAnimationFrame(drawVideo);
+            } catch (error) {
+              console.error('Error drawing video to canvas:', error);
+            }
+          }
+        };
+        
         // Set up MediaRecorder with canvas stream
         const options = { 
-          mimeType: 'video/webm;codecs=vp9,opus',
-          videoBitsPerSecond: 500000 // Lower bitrate for better performance
+          mimeType: 'video/webm;codecs=vp9,opus'
         };
         
         // Try the specified mime type first
+        let mediaRecorder: MediaRecorder;
         if (MediaRecorder.isTypeSupported(options.mimeType)) {
-          mediaRecorderRef.current = new MediaRecorder(canvasStream, options);
-          console.log(`Using ${options.mimeType} for recording with ${options.videoBitsPerSecond}bps`);
+          mediaRecorder = new MediaRecorder(canvasStream, options);
+          console.log(`Using ${options.mimeType} for recording`);
+        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+          mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+          console.log('Using video/webm for recording');
         } else {
-          // Fallback to browser default
-          console.log(`${options.mimeType} not supported, using browser default`);
-          mediaRecorderRef.current = new MediaRecorder(canvasStream);
+          mediaRecorder = new MediaRecorder(canvasStream);
+          console.log('Using browser default for recording');
         }
         
+        mediaRecorderRef.current = mediaRecorder;
         chunksRef.current = [];
         
         mediaRecorderRef.current.ondataavailable = (event) => {
@@ -209,7 +233,9 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         
         toast({
           title: 'Recording started',
-          description: gpsStarted ? 'GPS tracking is active. Recording IP camera stream.' : 'Recording IP camera stream without GPS.',
+          description: gpsStarted 
+            ? 'GPS tracking is active. Recording IP camera stream.' 
+            : 'Recording IP camera stream without GPS.',
         });
         
       } catch (err) {
@@ -248,14 +274,13 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
     try {
       const stream = videoRef.current.srcObject as MediaStream;
       const options = { 
-        mimeType: 'video/webm;codecs=vp9,opus',
-        videoBitsPerSecond: 500000 // Lower bitrate for better performance
+        mimeType: 'video/webm;codecs=vp9,opus'
       };
       
       // Try the specified mime type first
       if (MediaRecorder.isTypeSupported(options.mimeType)) {
         mediaRecorderRef.current = new MediaRecorder(stream, options);
-        console.log(`Using ${options.mimeType} for recording with ${options.videoBitsPerSecond}bps`);
+        console.log(`Using ${options.mimeType} for recording`);
       } else {
         // Fallback to browser default
         console.log(`${options.mimeType} not supported, using browser default`);

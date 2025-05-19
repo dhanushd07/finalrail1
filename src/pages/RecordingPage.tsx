@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 
 const RecordingPage: React.FC = () => {
   return (
-    <div className="container py-6 px-4">
+    <div className="container max-w-4xl py-6 px-4">
       <VideoRecorder />
       <Toaster />
     </div>
