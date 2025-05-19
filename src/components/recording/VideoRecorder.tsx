@@ -40,7 +40,10 @@ const VideoRecorder: React.FC = () => {
     selectedCamera,
     setSelectedCamera,
     cameraPermission,
-    error: cameraError
+    error: cameraError,
+    ipCameraUrl,
+    setIpCameraUrl,
+    isIpCamera
   } = useCamera();
 
   const {
@@ -64,6 +67,8 @@ const VideoRecorder: React.FC = () => {
         mediaRecorderRef.current.stop();
       }
     },
+    ipCameraUrl,
+    isIpCamera
   });
 
   const { uploadRecording } = useVideoUpload({
@@ -98,6 +103,9 @@ const VideoRecorder: React.FC = () => {
               selectedCamera={selectedCamera}
               setSelectedCamera={setSelectedCamera}
               disabled={isRecording || loading}
+              ipCameraUrl={ipCameraUrl}
+              setIpCameraUrl={setIpCameraUrl}
+              isIpCamera={isIpCamera}
             />
 
             <VideoPreview
@@ -107,6 +115,7 @@ const VideoRecorder: React.FC = () => {
               gpsEnabled={gpsEnabled}
               gpsAccuracy={gpsAccuracy}
               cameraPermission={cameraPermission}
+              isIpCamera={isIpCamera}
             />
           </div>
         </CardContent>
@@ -134,6 +143,7 @@ const VideoRecorder: React.FC = () => {
             setLoading={setLoading}
             setRecordingTime={setRecordingTime}
             getRecordingDuration={getRecordingDuration}
+            isIpCamera={isIpCamera}
           />
         </CardFooter>
       </Card>

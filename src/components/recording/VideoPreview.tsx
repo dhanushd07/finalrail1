@@ -11,6 +11,7 @@ interface VideoPreviewProps {
   gpsEnabled: boolean;
   gpsAccuracy: number | null;
   cameraPermission: boolean | null;
+  isIpCamera?: boolean;
 }
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({
@@ -19,11 +20,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   recordingTime,
   gpsEnabled,
   gpsAccuracy,
-  cameraPermission
+  cameraPermission,
+  isIpCamera = false
 }) => {
   return (
     <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
-      {cameraPermission === false ? (
+      {cameraPermission === false && !isIpCamera ? (
         <CameraPlaceholder />
       ) : (
         <video
@@ -32,6 +34,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           playsInline
           muted
           className="w-full h-full object-cover"
+          controls={isIpCamera} // Add controls for IP camera streams
         />
       )}
       
