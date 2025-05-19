@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import CameraPlaceholder from './CameraPlaceholder';
 import RecordingTimer from './RecordingTimer';
 import GpsStatus from './GpsStatus';
@@ -11,7 +11,6 @@ interface VideoPreviewProps {
   gpsEnabled: boolean;
   gpsAccuracy: number | null;
   cameraPermission: boolean | null;
-  isIpCamera?: boolean;
 }
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({
@@ -20,55 +19,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   recordingTime,
   gpsEnabled,
   gpsAccuracy,
-  cameraPermission,
-  isIpCamera = false
+  cameraPermission
 }) => {
-  // Setup event handlers for the video element
-  useEffect(() => {
-    if (videoRef.current && isIpCamera) {
-      const video = videoRef.current;
-      
-      // Add play error handler
-      const onPlayError = () => {
-        console.error("Error playing camera stream");
-      };
-      
-      // Add play success handler
-      const onCanPlay = () => {
-        console.log("Camera stream ready to play");
-        video.play().catch(onPlayError);
-      };
-      
-      // Add event listeners
-      video.addEventListener('canplay', onCanPlay);
-      video.addEventListener('error', onPlayError);
-      
-      // Clean up event listeners
-      return () => {
-        video.removeEventListener('canplay', onCanPlay);
-        video.removeEventListener('error', onPlayError);
-      };
-    }
-  }, [videoRef, isIpCamera]);
-
   return (
     <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
-      {cameraPermission === false && !isIpCamera ? (
+      {cameraPermission === false ? (
         <CameraPlaceholder />
-      ) : isIpCamera ? (
-        <>
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-            controls
-          />
-          <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 text-xs rounded">
-            IP Camera Stream
-          </div>
-        </>
       ) : (
         <video
           ref={videoRef}

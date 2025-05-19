@@ -7,11 +7,6 @@ interface UseCameraReturn {
   setSelectedCamera: (camera: string) => void;
   cameraPermission: boolean | null;
   error: string | null;
-  ipCameraUrl: string;
-  setIpCameraUrl: (url: string) => void;
-  isIpCamera: boolean;
-  useProxy: boolean;
-  setUseProxy: (use: boolean) => void;
 }
 
 export const useCamera = (): UseCameraReturn => {
@@ -19,9 +14,6 @@ export const useCamera = (): UseCameraReturn => {
   const [selectedCamera, setSelectedCamera] = useState<string>('');
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ipCameraUrl, setIpCameraUrl] = useState<string>('');
-  const [isIpCamera, setIsIpCamera] = useState<boolean>(false);
-  const [useProxy, setUseProxy] = useState<boolean>(false);
 
   useEffect(() => {
     const getCameras = async () => {
@@ -53,21 +45,11 @@ export const useCamera = (): UseCameraReturn => {
     getCameras();
   }, []);
 
-  // Update isIpCamera flag whenever selectedCamera changes
-  useEffect(() => {
-    setIsIpCamera(selectedCamera === 'ip-camera');
-  }, [selectedCamera]);
-
   return {
     cameras,
     selectedCamera,
     setSelectedCamera,
     cameraPermission,
-    error,
-    ipCameraUrl,
-    setIpCameraUrl,
-    isIpCamera,
-    useProxy,
-    setUseProxy
+    error
   };
 };
