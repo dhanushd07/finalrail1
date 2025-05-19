@@ -144,6 +144,7 @@ const VideoRecorder: React.FC = () => {
             setRecordingTime={setRecordingTime}
             getRecordingDuration={getRecordingDuration}
             isIpCamera={isIpCamera}
+            ipCameraUrl={ipCameraUrl}
           />
         </CardFooter>
       </Card>

@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Info } from 'lucide-react';
 
 interface CameraSelectProps {
   cameras: MediaDeviceInfo[];
@@ -24,11 +25,34 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
   isIpCamera = false
 }) => {
   const [tempIpUrl, setTempIpUrl] = useState(ipCameraUrl);
+  const [inputValid, setInputValid] = useState(true);
+
+  useEffect(() => {
+    // Update tempUrl when ipCameraUrl changes from outside
+    setTempIpUrl(ipCameraUrl);
+  }, [ipCameraUrl]);
+
+  const validateUrl = (url: string) => {
+    if (!url) return false;
+    
+    try {
+      // Attempt to create URL object to validate basic format
+      new URL(url);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
 
   // Apply IP camera URL when button is clicked
   const handleApplyIpUrl = () => {
     if (tempIpUrl) {
-      setIpCameraUrl(tempIpUrl);
+      const isValid = validateUrl(tempIpUrl);
+      setInputValid(isValid);
+      
+      if (isValid) {
+        setIpCameraUrl(tempIpUrl);
+      }
     }
   };
 
@@ -55,36 +79,54 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
             </SelectItem>
           ))}
           <SelectItem value="ip-camera">
-            IP Camera (ESP32)
+            IP Camera (ESP32-CAM)
           </SelectItem>
         </SelectContent>
       </Select>
 
       {isIpCamera && (
         <div className="flex flex-col space-y-2 mt-2">
-          <label htmlFor="ip-camera-url" className="text-sm font-medium">
-            IP Camera URL
+          <label htmlFor="ip-camera-url" className="text-sm font-medium flex items-center">
+            ESP32-CAM URL
+            <span className="ml-1 text-xs text-muted-foreground inline-flex items-center">
+              <Info className="h-3 w-3 mr-1" />
+              Include http://
+            </span>
           </label>
           <div className="flex space-x-2">
             <Input
               id="ip-camera-url"
               type="url"
-              placeholder="http://192.168.179.180/"
+              placeholder="http://192.168.1.x/"
               value={tempIpUrl}
-              onChange={(e) => setTempIpUrl(e.target.value)}
+              onChange={(e) => {
+                setTempIpUrl(e.target.value);
+                setInputValid(true); // Reset validation on change
+              }}
               disabled={disabled}
+              className={!inputValid ? "border-red-500" : ""}
             />
             <Button 
               onClick={handleApplyIpUrl}
               disabled={disabled || !tempIpUrl}
               type="button"
             >
-              Apply
+              Connect
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Enter the URL of your ESP32-CAM stream (e.g., http://192.168.179.180/)
-          </p>
+          <div className="space-y-1">
+            {!inputValid && (
+              <p className="text-xs text-red-500">
+                Please enter a valid URL (e.g., http://192.168.179.180)
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Enter the IP address of your ESP32-CAM (e.g., http://192.168.179.180)
+            </p>
+            <p className="text-xs text-muted-foreground">
+              The app will automatically append "/stream" if needed
+            </p>
+          </div>
         </div>
       )}
     </div>

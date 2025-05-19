@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import VideoStatus from './VideoStatus';
 
@@ -27,6 +27,7 @@ interface RecordingControlsProps {
   setRecordingTime: React.Dispatch<React.SetStateAction<number>>;
   getRecordingDuration: () => number;
   isIpCamera?: boolean;
+  ipCameraUrl?: string;
 }
 
 const RecordingControls: React.FC<RecordingControlsProps> = ({
@@ -47,9 +48,21 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
   setLoading,
   setRecordingTime,
   getRecordingDuration,
-  isIpCamera = false
+  isIpCamera = false,
+  ipCameraUrl = ''
 }) => {
   const { toast } = useToast();
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  
+  // Cleanup animation frame on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   const handleStartRecording = async () => {
     if (!videoRef.current) {
@@ -64,19 +77,40 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
     // For IP camera, we need to create a canvas to capture frames from the video
     if (isIpCamera) {
       try {
-        // Make sure video is playing
-        await videoRef.current.play();
+        // Create canvas element if it doesn't exist
+        if (!canvasRef.current) {
+          canvasRef.current = document.createElement('canvas');
+        }
         
-        // Create canvas element
-        const canvas = document.createElement('canvas');
+        const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           throw new Error('Could not get canvas context');
         }
         
+        // Make sure the video has loaded properly for ESP32 cam stream
+        if (videoRef.current.readyState === 0) {
+          // If the video hasn't loaded yet, wait for it
+          toast({
+            title: 'Loading',
+            description: 'Waiting for IP camera stream to load...',
+          });
+          
+          await new Promise<void>((resolve) => {
+            const checkVideoReady = () => {
+              if (videoRef.current?.readyState && videoRef.current.readyState > 0) {
+                resolve();
+              } else {
+                setTimeout(checkVideoReady, 500);
+              }
+            };
+            checkVideoReady();
+          });
+        }
+        
         // Set canvas dimensions to match video
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
+        canvas.width = videoRef.current.clientWidth || 640;
+        canvas.height = videoRef.current.clientHeight || 480;
         
         // Create a stream from canvas
         const canvasStream = canvas.captureStream(30); // 30 fps
@@ -99,8 +133,12 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         // Start drawing video to canvas
         const drawVideo = () => {
           if (videoRef.current && ctx && isRecording) {
-            ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-            requestAnimationFrame(drawVideo);
+            try {
+              ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+              animationFrameRef.current = requestAnimationFrame(drawVideo);
+            } catch (error) {
+              console.error('Error drawing video to canvas:', error);
+            }
           }
         };
         
@@ -142,6 +180,11 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         
         mediaRecorderRef.current.onstop = async () => {
           console.log(`Recording stopped with ${chunksRef.current.length} chunks collected`);
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+          }
+          
           const finalDuration = getRecordingDuration();
           console.log(`Final recording duration: ${finalDuration} seconds`);
           
@@ -173,7 +216,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         console.error('Error starting IP camera recording:', err);
         toast({
           title: 'Recording Error',
-          description: 'Failed to start recording from IP camera',
+          description: 'Failed to start recording from IP camera. Please check if the stream is accessible.',
           variant: 'destructive',
         });
         stopGpsTracking();
@@ -268,6 +311,12 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
       console.log('Stopping recording');
       mediaRecorderRef.current.stop();
       stopTimer(); // Make sure we stop the timer before calculating the final duration
+      
+      // Cancel animation frame if we're using the canvas method
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
     }
   };
 

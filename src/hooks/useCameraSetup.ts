@@ -35,16 +35,27 @@ export function useCameraSetup({
         if (isIpCamera && ipCameraUrl) {
           if (videoRef.current) {
             videoRef.current.srcObject = null;
-            videoRef.current.src = ipCameraUrl;
-            videoRef.current.crossOrigin = "anonymous";
-            console.log('IP Camera URL set:', ipCameraUrl);
             
-            // Check if we can actually load the stream
+            // For ESP32-CAM, we need to handle the MJPEG stream properly
+            // Use the /stream endpoint for ESP32-CAM
+            let url = ipCameraUrl;
+            if (!url.endsWith('/')) url += '/';
+            
+            // Check if the URL already contains a stream endpoint
+            if (!url.includes('/stream')) {
+              url += 'stream';
+            }
+            
+            videoRef.current.src = url;
+            videoRef.current.crossOrigin = "anonymous";
+            console.log('IP Camera URL set:', url);
+            
+            // Handle errors
             videoRef.current.onerror = () => {
               console.error('Failed to load IP camera stream');
               toast({
                 title: 'Camera Error',
-                description: 'Failed to connect to IP camera stream. Please check the URL.',
+                description: 'Failed to connect to IP camera stream. Please check the URL and ensure the ESP32-CAM is running properly.',
                 variant: 'destructive',
               });
             };
