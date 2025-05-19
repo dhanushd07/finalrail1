@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Info, Wifi } from 'lucide-react';
+import { Info, Wifi, Lock, Globe } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface CameraSelectProps {
   cameras: MediaDeviceInfo[];
@@ -14,6 +16,8 @@ interface CameraSelectProps {
   ipCameraUrl?: string;
   setIpCameraUrl?: (url: string) => void;
   isIpCamera?: boolean;
+  useProxy?: boolean;
+  setUseProxy?: (use: boolean) => void;
 }
 
 const CameraSelect: React.FC<CameraSelectProps> = ({
@@ -23,7 +27,9 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
   disabled,
   ipCameraUrl = '',
   setIpCameraUrl = () => {},
-  isIpCamera = false
+  isIpCamera = false,
+  useProxy = false,
+  setUseProxy = () => {}
 }) => {
   const [tempIpUrl, setTempIpUrl] = useState(ipCameraUrl);
   const [inputValid, setInputValid] = useState(true);
@@ -94,33 +100,56 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
             ESP32-CAM URL
             <span className="ml-1 text-xs text-muted-foreground inline-flex items-center">
               <Info className="h-3 w-3 mr-1" />
-              Include http://
+              Include http:// or https://
             </span>
           </label>
-          <div className="flex space-x-2">
-            <Input
-              id="ip-camera-url"
-              type="url"
-              placeholder="http://192.168.1.x/"
-              value={tempIpUrl}
-              onChange={(e) => {
-                setTempIpUrl(e.target.value);
-                setInputValid(true); // Reset validation on change
-              }}
-              disabled={disabled}
-              className={!inputValid ? "border-red-500" : ""}
-            />
-            <Button 
-              onClick={handleApplyIpUrl}
-              disabled={disabled || !tempIpUrl}
-              type="button"
-            >
-              Connect
-            </Button>
+          
+          <div className="flex space-y-2 flex-col">
+            <div className="flex items-center space-x-2 mb-2">
+              <Switch 
+                id="use-proxy"
+                checked={useProxy} 
+                onCheckedChange={setUseProxy}
+                disabled={disabled}
+              />
+              <Label htmlFor="use-proxy" className="flex items-center">
+                <Lock className="h-4 w-4 mr-1" />
+                Use HTTPS Proxy
+                <span className="ml-1 text-xs text-muted-foreground">(recommended)</span>
+              </Label>
+            </div>
+            
+            <div className="flex space-x-2">
+              <div className="relative flex-1">
+                <Input
+                  id="ip-camera-url"
+                  type="url"
+                  placeholder={useProxy ? "https://yourdomain.com/proxy/cam" : "http://192.168.1.x/stream"}
+                  value={tempIpUrl}
+                  onChange={(e) => {
+                    setTempIpUrl(e.target.value);
+                    setInputValid(true); // Reset validation on change
+                  }}
+                  disabled={disabled}
+                  className={`${!inputValid ? "border-red-500" : ""} pl-8`}
+                />
+                <div className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                  {useProxy ? <Lock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+                </div>
+              </div>
+              <Button 
+                onClick={handleApplyIpUrl}
+                disabled={disabled || !tempIpUrl}
+                type="button"
+              >
+                Connect
+              </Button>
+            </div>
           </div>
+          
           {!inputValid && (
             <p className="text-xs text-red-500">
-              Please enter a valid URL (e.g., http://192.168.179.180)
+              Please enter a valid URL (e.g., https://your-proxy.com/esp32cam or http://192.168.1.x/stream)
             </p>
           )}
           
@@ -128,11 +157,11 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
             <AlertDescription className="text-xs">
               <p className="font-medium">ESP32-CAM Connection Help:</p>
               <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>Make sure your ESP32-CAM is properly powered</li>
-                <li>Ensure your device is on the same network as the ESP32-CAM</li>
-                <li>The default ESP32-CAM URL is usually: http://192.168.x.x</li>
-                <li>Some ESP32-CAMs use port 81 (e.g., http://192.168.x.x:81)</li>
-                <li>Try both /stream and /video endpoints if one doesn't work</li>
+                <li>For secure connections, set up a reverse proxy with HTTPS support</li>
+                <li>Direct camera connections only work on HTTP sites or localhost</li>
+                <li>If using a proxy, enter the full HTTPS URL to your proxy endpoint</li>
+                <li>If using direct connection, make sure your device is on the same network as the ESP32-CAM</li>
+                <li>Typical ESP32-CAM URLs: http://192.168.x.x or http://192.168.x.x:81/stream</li>
               </ul>
             </AlertDescription>
           </Alert>

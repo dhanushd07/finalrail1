@@ -43,7 +43,9 @@ const VideoRecorder: React.FC = () => {
     error: cameraError,
     ipCameraUrl,
     setIpCameraUrl,
-    isIpCamera
+    isIpCamera,
+    useProxy,
+    setUseProxy
   } = useCamera();
 
   const {
@@ -68,7 +70,8 @@ const VideoRecorder: React.FC = () => {
       }
     },
     ipCameraUrl,
-    isIpCamera
+    isIpCamera,
+    useProxy
   });
 
   const { uploadRecording } = useVideoUpload({
@@ -106,6 +109,8 @@ const VideoRecorder: React.FC = () => {
               ipCameraUrl={ipCameraUrl}
               setIpCameraUrl={setIpCameraUrl}
               isIpCamera={isIpCamera}
+              useProxy={useProxy}
+              setUseProxy={setUseProxy}
             />
 
             <VideoPreview
@@ -145,6 +150,7 @@ const VideoRecorder: React.FC = () => {
             getRecordingDuration={getRecordingDuration}
             isIpCamera={isIpCamera}
             ipCameraUrl={ipCameraUrl}
+            useProxy={useProxy}
           />
         </CardFooter>
       </Card>

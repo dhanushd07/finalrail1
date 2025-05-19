@@ -10,6 +10,8 @@ interface UseCameraReturn {
   ipCameraUrl: string;
   setIpCameraUrl: (url: string) => void;
   isIpCamera: boolean;
+  useProxy: boolean;
+  setUseProxy: (use: boolean) => void;
 }
 
 export const useCamera = (): UseCameraReturn => {
@@ -19,6 +21,7 @@ export const useCamera = (): UseCameraReturn => {
   const [error, setError] = useState<string | null>(null);
   const [ipCameraUrl, setIpCameraUrl] = useState<string>('');
   const [isIpCamera, setIsIpCamera] = useState<boolean>(false);
+  const [useProxy, setUseProxy] = useState<boolean>(false);
 
   useEffect(() => {
     const getCameras = async () => {
@@ -63,6 +66,8 @@ export const useCamera = (): UseCameraReturn => {
     error,
     ipCameraUrl,
     setIpCameraUrl,
-    isIpCamera
+    isIpCamera,
+    useProxy,
+    setUseProxy
   };
 };

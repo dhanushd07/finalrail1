@@ -30,12 +30,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
       
       // Add play error handler
       const onPlayError = () => {
-        console.error("Error playing ESP32-CAM stream");
+        console.error("Error playing camera stream");
       };
       
       // Add play success handler
       const onCanPlay = () => {
-        console.log("ESP32-CAM stream ready to play");
+        console.log("Camera stream ready to play");
         video.play().catch(onPlayError);
       };
       
@@ -66,7 +66,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
             controls
           />
           <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 text-xs rounded">
-            ESP32-CAM Stream
+            IP Camera Stream
           </div>
         </>
       ) : (

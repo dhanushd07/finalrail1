@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import VideoStatus from './VideoStatus';
@@ -28,6 +29,7 @@ interface RecordingControlsProps {
   getRecordingDuration: () => number;
   isIpCamera?: boolean;
   ipCameraUrl?: string;
+  useProxy?: boolean;
 }
 
 const RecordingControls: React.FC<RecordingControlsProps> = ({
@@ -49,7 +51,8 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
   setRecordingTime,
   getRecordingDuration,
   isIpCamera = false,
-  ipCameraUrl = ''
+  ipCameraUrl = '',
+  useProxy = false
 }) => {
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -92,7 +95,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         if (!videoRef.current.readyState || videoRef.current.readyState < 2) {
           toast({
             title: 'Loading',
-            description: 'Waiting for IP camera stream to load...',
+            description: `Waiting for camera stream to load${useProxy ? ' through proxy' : ''}...`,
           });
           
           try {
@@ -122,7 +125,9 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
             console.error('Error waiting for stream:', error);
             toast({
               title: 'Stream Error',
-              description: 'Could not load ESP32-CAM stream. Please check the connection and refresh.',
+              description: useProxy 
+                ? 'Could not load camera stream through the proxy. Please check your proxy configuration and URL.'
+                : 'Could not load ESP32-CAM stream. Please check the connection and refresh.',
               variant: 'destructive',
             });
             return;
@@ -234,15 +239,17 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         toast({
           title: 'Recording started',
           description: gpsStarted 
-            ? 'GPS tracking is active. Recording IP camera stream.' 
-            : 'Recording IP camera stream without GPS.',
+            ? `GPS tracking is active. Recording ${useProxy ? 'proxied ' : ''}camera stream.` 
+            : `Recording ${useProxy ? 'proxied ' : ''}camera stream without GPS.`,
         });
         
       } catch (err) {
         console.error('Error starting IP camera recording:', err);
         toast({
           title: 'Recording Error',
-          description: 'Failed to start recording from IP camera. Please check if the stream is accessible.',
+          description: useProxy
+            ? 'Failed to start recording from proxied camera stream. Please check if the proxy is correctly configured.'
+            : 'Failed to start recording from IP camera. Please check if the stream is accessible.',
           variant: 'destructive',
         });
         stopGpsTracking();

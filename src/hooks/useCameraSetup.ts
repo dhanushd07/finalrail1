@@ -9,6 +9,7 @@ interface UseCameraSetupProps {
   stopRecording: () => void;
   ipCameraUrl?: string;
   isIpCamera?: boolean;
+  useProxy?: boolean;
 }
 
 export function useCameraSetup({ 
@@ -17,7 +18,8 @@ export function useCameraSetup({
   isRecording, 
   stopRecording,
   ipCameraUrl = '',
-  isIpCamera = false
+  isIpCamera = false,
+  useProxy = false
 }: UseCameraSetupProps) {
   const { toast } = useToast();
 
@@ -36,12 +38,14 @@ export function useCameraSetup({
           if (videoRef.current) {
             videoRef.current.srcObject = null;
             
-            // For ESP32-CAM, ensure we have the correct URL format
+            // Format URL based on whether we're using a proxy or not
             let url = ipCameraUrl;
+            
             if (!url.endsWith('/')) url += '/';
             
-            // Check if the URL needs the stream endpoint
-            if (!url.includes('/stream')) {
+            // If using proxy, we don't need to append stream endpoint
+            // as the proxy should be already configured to point to the stream
+            if (!useProxy && !url.includes('/stream')) {
               url += 'stream';
             }
             
@@ -56,7 +60,7 @@ export function useCameraSetup({
               console.error('Failed to load IP camera stream');
               toast({
                 title: 'Camera Error',
-                description: 'Failed to connect to IP camera stream. Please check the URL and ensure the ESP32-CAM is running properly.',
+                description: 'Failed to connect to IP camera stream. Please check the URL and ensure the camera is accessible.',
                 variant: 'destructive',
               });
             };
@@ -88,5 +92,5 @@ export function useCameraSetup({
     
     setupCamera();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCamera, ipCameraUrl, isIpCamera]);
+  }, [selectedCamera, ipCameraUrl, isIpCamera, useProxy]);
 }
