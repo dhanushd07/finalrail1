@@ -54,7 +54,7 @@ export function useCameraSetup({ selectedCamera, videoRef, isRecording, stopReco
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCamera]);
 
-  // Handle IP camera stream
+  // Handle IP camera - no video element setup needed, <img> handles display
   useEffect(() => {
     if (selectedCamera !== IP_CAMERA_VALUE) return;
     if (!videoRef.current) return;
@@ -66,20 +66,8 @@ export function useCameraSetup({ selectedCamera, videoRef, isRecording, stopReco
       videoRef.current.srcObject = null;
     }
 
-    if (!ipStreamUrl) {
-      videoRef.current.removeAttribute('src');
-      return;
-    }
-
-    // Route stream through our Edge Function proxy to avoid CORS issues
-    const SUPABASE_URL = "https://lpygwakpksolprthcrqy.supabase.co";
-    const proxyUrl = `${SUPABASE_URL}/functions/v1/ip-camera-proxy?url=${encodeURIComponent(ipStreamUrl)}`;
-
-    videoRef.current.crossOrigin = 'anonymous';
-    videoRef.current.src = proxyUrl;
-    videoRef.current.load();
-
-    console.log('IP Camera stream set to:', ipStreamUrl);
+    videoRef.current.removeAttribute('src');
+    console.log('IP Camera mode: preview handled by <img> element, recording via proxy polling');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCamera, ipStreamUrl]);
 }
