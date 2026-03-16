@@ -71,11 +71,12 @@ export function useCameraSetup({ selectedCamera, videoRef, isRecording, stopReco
       return;
     }
 
-    // For MJPEG streams we render via an <img> painted onto a canvas,
-    // but many ESP32-CAM setups via ngrok serve a proper video stream.
-    // We set the video src directly and use crossOrigin for CORS.
+    // Route stream through our Edge Function proxy to avoid CORS issues
+    const SUPABASE_URL = "https://lpygwakpksolprthcrqy.supabase.co";
+    const proxyUrl = `${SUPABASE_URL}/functions/v1/ip-camera-proxy?url=${encodeURIComponent(ipStreamUrl)}`;
+
     videoRef.current.crossOrigin = 'anonymous';
-    videoRef.current.src = ipStreamUrl;
+    videoRef.current.src = proxyUrl;
     videoRef.current.load();
 
     console.log('IP Camera stream set to:', ipStreamUrl);
