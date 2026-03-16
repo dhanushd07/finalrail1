@@ -3,8 +3,12 @@ import React, { useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import VideoStatus from './VideoStatus';
 
+const SUPABASE_URL = "https://lpygwakpksolprthcrqy.supabase.co";
+const PROXY_BASE = `${SUPABASE_URL}/functions/v1/ip-camera-proxy`;
+
 interface RecordingControlsProps {
   videoRef: React.RefObject<HTMLVideoElement>;
+  imgRef?: React.RefObject<HTMLImageElement>;
   isRecording: boolean;
   loading: boolean;
   selectedCamera: string;
@@ -33,6 +37,7 @@ interface RecordingControlsProps {
 
 const RecordingControls: React.FC<RecordingControlsProps> = ({
   videoRef,
+  imgRef,
   isRecording,
   loading,
   selectedCamera,
@@ -54,49 +59,69 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
 }) => {
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawLoopRef = useRef<number | null>(null);
+  const pollIntervalRef = useRef<number | null>(null);
 
-  const stopCanvasLoop = useCallback(() => {
-    if (drawLoopRef.current) {
-      cancelAnimationFrame(drawLoopRef.current);
-      drawLoopRef.current = null;
+  const stopPollingLoop = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
     }
   }, []);
 
+  // Poll the proxy for JPEG snapshots and paint onto canvas for recording
   const getIpCameraStream = useCallback((): MediaStream | null => {
-    if (!videoRef.current) return null;
-
-    // Create a hidden canvas to capture the video element
     if (!canvasRef.current) {
       canvasRef.current = document.createElement('canvas');
     }
     const canvas = canvasRef.current;
-    const video = videoRef.current;
-
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    canvas.width = 640;
+    canvas.height = 480;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Draw loop to paint video frames onto canvas
-    const draw = () => {
-      if (video.readyState >= 2) {
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      }
-      drawLoopRef.current = requestAnimationFrame(draw);
-    };
-    draw();
+    // If we have an img element showing the MJPEG stream, paint it to canvas
+    const imgEl = imgRef?.current;
+    if (imgEl) {
+      // Use the live <img> element which shows the MJPEG stream
+      const paintFrame = () => {
+        if (imgEl.naturalWidth > 0 && imgEl.naturalHeight > 0) {
+          canvas.width = imgEl.naturalWidth;
+          canvas.height = imgEl.naturalHeight;
+          ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+        }
+      };
 
-    // captureStream from canvas gives us a recordable MediaStream
-    return canvas.captureStream(30);
-  }, [videoRef]);
+      // Poll and paint frames from the proxy (CORS-safe) for recording
+      const proxyUrl = `${PROXY_BASE}?url=${encodeURIComponent(ipStreamUrl)}`;
+      
+      const fetchAndPaint = async () => {
+        try {
+          const res = await fetch(proxyUrl);
+          if (!res.ok) return;
+          const blob = await res.blob();
+          const bitmap = await createImageBitmap(blob);
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          ctx.drawImage(bitmap, 0, 0);
+          bitmap.close();
+        } catch (e) {
+          // If proxy fetch fails, try painting from img element directly
+          paintFrame();
+        }
+      };
+
+      // Fetch first frame immediately
+      fetchAndPaint();
+      // Then poll at ~10fps (100ms interval) — balance between quality and load
+      pollIntervalRef.current = window.setInterval(fetchAndPaint, 100);
+    }
+
+    return canvas.captureStream(10);
+  }, [imgRef, ipStreamUrl]);
 
   const handleStartRecording = async () => {
     if (isIpCamera) {
-      // IP Camera recording path
-      if (!videoRef.current || !ipStreamUrl) {
+      if (!ipStreamUrl) {
         toast({
           title: 'Error',
           description: 'IP Camera stream not ready. Enter a valid stream URL.',
@@ -104,18 +129,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         });
         return;
       }
-
-      // Wait for video to be playable
-      if (videoRef.current.readyState < 2) {
-        toast({
-          title: 'Error',
-          description: 'Stream is still loading. Please wait for the preview to appear.',
-          variant: 'destructive',
-        });
-        return;
-      }
     } else {
-      // Device camera recording path (existing logic)
       if (!videoRef.current?.srcObject) {
         toast({
           title: 'Error',
@@ -173,7 +187,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
 
       mediaRecorderRef.current.onstop = async () => {
         console.log(`Recording stopped with ${chunksRef.current.length} chunks collected`);
-        stopCanvasLoop();
+        stopPollingLoop();
         const finalDuration = getRecordingDuration();
         console.log(`Final recording duration: ${finalDuration} seconds`);
         
@@ -198,7 +212,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
       });
     } catch (err) {
       console.error('Error starting recording:', err);
-      stopCanvasLoop();
+      stopPollingLoop();
       toast({
         title: 'Recording Error',
         description: 'Failed to start recording',

@@ -20,6 +20,7 @@ import RecordingControls from './RecordingControls';
 const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [ipStreamUrl, setIpStreamUrl] = useState<string>('');
   
@@ -90,6 +91,7 @@ const VideoRecorder: React.FC = () => {
 
             <VideoPreview
               videoRef={videoRef}
+              imgRef={imgRef}
               isRecording={isRecording}
               recordingTime={recordingTime}
               gpsEnabled={gpsEnabled}
@@ -106,6 +108,7 @@ const VideoRecorder: React.FC = () => {
           </div>
           <RecordingControls
             videoRef={videoRef}
+            imgRef={imgRef}
             isRecording={isRecording}
             loading={loading}
             selectedCamera={selectedCamera}
