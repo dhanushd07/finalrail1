@@ -8,7 +8,6 @@ import { useCameraSetup } from '@/hooks/useCameraSetup';
 import { useVideoUpload } from '@/hooks/useVideoUpload';
 import { useCamera } from '@/hooks/useCamera';
 import { useGPS } from '@/hooks/useGPS';
-import { IP_CAMERA_VALUE } from './CameraSelect';
 
 // Components
 import CameraSelect from './CameraSelect';
@@ -20,29 +19,40 @@ import RecordingControls from './RecordingControls';
 const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [ipStreamUrl, setIpStreamUrl] = useState<string>('');
   
+  // Custom hooks for logical separation
   const {
-    isRecording, setIsRecording,
-    recordingTime, setRecordingTime,
-    timerRef, mediaRecorderRef, chunksRef,
-    startTimer, stopTimer, getRecordingDuration
+    isRecording,
+    setIsRecording,
+    recordingTime,
+    setRecordingTime,
+    timerRef,
+    mediaRecorderRef,
+    chunksRef,
+    startTimer,
+    stopTimer,
+    getRecordingDuration
   } = useVideoRecording();
 
   const {
-    cameras, selectedCamera, setSelectedCamera,
-    cameraPermission, error: cameraError
+    cameras,
+    selectedCamera,
+    setSelectedCamera,
+    cameraPermission,
+    error: cameraError
   } = useCamera();
 
   const {
-    gpsEnabled, gpsAccuracy, gpsLogRef,
-    startGpsTracking, stopGpsTracking, generateGpsLogContent,
-    hasGpsError, gpsErrorMessage
+    gpsEnabled,
+    gpsAccuracy,
+    gpsLogRef,
+    startGpsTracking,
+    stopGpsTracking,
+    generateGpsLogContent,
+    hasGpsError,
+    gpsErrorMessage
   } = useGPS();
-
-  const isIpCamera = selectedCamera === IP_CAMERA_VALUE;
 
   useCameraSetup({
     selectedCamera,
@@ -54,12 +64,15 @@ const VideoRecorder: React.FC = () => {
         mediaRecorderRef.current.stop();
       }
     },
-    ipStreamUrl,
   });
 
   const { uploadRecording } = useVideoUpload({
-    user, gpsLogRef, stopGpsTracking, generateGpsLogContent,
-    hasGpsError, gpsErrorMessage
+    user,
+    gpsLogRef,
+    stopGpsTracking,
+    generateGpsLogContent,
+    hasGpsError,
+    gpsErrorMessage
   });
 
   return (
@@ -85,30 +98,26 @@ const VideoRecorder: React.FC = () => {
               selectedCamera={selectedCamera}
               setSelectedCamera={setSelectedCamera}
               disabled={isRecording || loading}
-              ipStreamUrl={ipStreamUrl}
-              onIpStreamUrlChange={setIpStreamUrl}
             />
 
             <VideoPreview
               videoRef={videoRef}
-              imgRef={imgRef}
               isRecording={isRecording}
               recordingTime={recordingTime}
               gpsEnabled={gpsEnabled}
               gpsAccuracy={gpsAccuracy}
               cameraPermission={cameraPermission}
-              isIpCamera={isIpCamera}
-              ipStreamUrl={ipStreamUrl}
             />
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">
           <div className="text-sm text-muted-foreground">
-            {isRecording ? 'Recording in progress...' : 'Ready to record'}
+            {isRecording
+              ? 'Recording in progress...'
+              : 'Ready to record'}
           </div>
           <RecordingControls
             videoRef={videoRef}
-            imgRef={imgRef}
             isRecording={isRecording}
             loading={loading}
             selectedCamera={selectedCamera}
@@ -125,8 +134,6 @@ const VideoRecorder: React.FC = () => {
             setLoading={setLoading}
             setRecordingTime={setRecordingTime}
             getRecordingDuration={getRecordingDuration}
-            isIpCamera={isIpCamera}
-            ipStreamUrl={ipStreamUrl}
           />
         </CardFooter>
       </Card>
