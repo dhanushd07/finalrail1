@@ -152,6 +152,8 @@ const VideoRecorder: React.FC = () => {
             startIpRecording={startIpRecording}
             stopIpStream={stopIpStream}
             drawToCanvas={drawToCanvas}
+            ipStreamStatus={streamStatus}
+            ipStreamUrl={ipStreamUrl}
           />
         </CardFooter>
       </Card>
