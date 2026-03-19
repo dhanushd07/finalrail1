@@ -11,7 +11,7 @@ import { useGPS } from '@/hooks/useGPS';
 import { useIpCamera } from '@/hooks/useIpCamera';
 
 // Components
-import CameraSelect, { IP_CAMERA_ID, DEFAULT_IP_URL } from './CameraSelect';
+import CameraSelect, { IP_CAMERA_ID } from './CameraSelect';
 import VideoPreview from './VideoPreview';
 import RecordingInstructions from './RecordingInstructions';
 import RecordingWarnings from './RecordingWarnings';
