@@ -21,7 +21,7 @@ const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [ipStreamUrl, setIpStreamUrl] = useState<string>(DEFAULT_IP_URL);
+  const [ipStreamUrl, setIpStreamUrl] = useState<string>('');
   
   // Custom hooks for logical separation
   const {
