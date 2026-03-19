@@ -86,7 +86,7 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
             </div>
           )}
           {!ipStreamUrl && (
-            <div className="flex items-center gap-1.5 text-xs text-amber-600">
+            <div className="flex items-center gap-1.5 text-xs text-destructive">
               <AlertCircle className="h-3 w-3" />
               Please enter a valid stream URL to continue
             </div>
