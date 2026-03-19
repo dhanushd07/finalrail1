@@ -2,9 +2,9 @@
 import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 export const IP_CAMERA_ID = '__ip_camera__';
-const DEFAULT_IP_URL = 'https://ability-expressed-artwork-sanyo.trycloudflare.com/stream';
 
 interface CameraSelectProps {
   cameras: MediaDeviceInfo[];
@@ -13,6 +13,8 @@ interface CameraSelectProps {
   disabled: boolean;
   ipStreamUrl?: string;
   onIpStreamUrlChange?: (url: string) => void;
+  ipStreamStatus?: 'idle' | 'loading' | 'connected' | 'error';
+  ipStreamError?: string | null;
 }
 
 const CameraSelect: React.FC<CameraSelectProps> = ({
@@ -21,7 +23,9 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
   setSelectedCamera,
   disabled,
   ipStreamUrl,
-  onIpStreamUrlChange
+  onIpStreamUrlChange,
+  ipStreamStatus = 'idle',
+  ipStreamError
 }) => {
   const isIpCamera = selectedCamera === IP_CAMERA_ID;
 
@@ -52,23 +56,47 @@ const CameraSelect: React.FC<CameraSelectProps> = ({
       </Select>
 
       {isIpCamera && (
-        <div className="flex flex-col space-y-1">
+        <div className="flex flex-col space-y-2">
           <label htmlFor="ip-url" className="text-xs text-muted-foreground">
-            IP Stream URL (MJPEG)
+            Enter IP Stream URL (MJPEG)
           </label>
           <Input
             id="ip-url"
-            value={ipStreamUrl ?? DEFAULT_IP_URL}
+            value={ipStreamUrl ?? ''}
             onChange={(e) => onIpStreamUrlChange?.(e.target.value)}
-            placeholder="http://192.168.1.100/stream"
+            placeholder="https://your-camera-address/stream"
             disabled={disabled}
           />
+          {ipStreamStatus === 'loading' && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Connecting to IP camera stream...
+            </div>
+          )}
+          {ipStreamStatus === 'connected' && (
+            <div className="flex items-center gap-1.5 text-xs text-primary">
+              <CheckCircle2 className="h-3 w-3" />
+              Stream connected successfully
+            </div>
+          )}
+          {ipStreamStatus === 'error' && (
+            <div className="flex items-center gap-1.5 text-xs text-destructive">
+              <AlertCircle className="h-3 w-3" />
+              {ipStreamError || 'Failed to connect to IP camera stream'}
+            </div>
+          )}
+          {!ipStreamUrl && (
+            <div className="flex items-center gap-1.5 text-xs text-destructive">
+              <AlertCircle className="h-3 w-3" />
+              Please enter a valid stream URL to continue
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-export { DEFAULT_IP_URL };
 export default CameraSelect;
+
 

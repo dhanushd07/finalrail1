@@ -11,7 +11,7 @@ import { useGPS } from '@/hooks/useGPS';
 import { useIpCamera } from '@/hooks/useIpCamera';
 
 // Components
-import CameraSelect, { IP_CAMERA_ID, DEFAULT_IP_URL } from './CameraSelect';
+import CameraSelect, { IP_CAMERA_ID } from './CameraSelect';
 import VideoPreview from './VideoPreview';
 import RecordingInstructions from './RecordingInstructions';
 import RecordingWarnings from './RecordingWarnings';
@@ -21,7 +21,7 @@ const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [ipStreamUrl, setIpStreamUrl] = useState<string>(DEFAULT_IP_URL);
+  const [ipStreamUrl, setIpStreamUrl] = useState<string>('');
   
   // Custom hooks for logical separation
   const {
@@ -56,7 +56,7 @@ const VideoRecorder: React.FC = () => {
     gpsErrorMessage
   } = useGPS();
 
-  const { imgRef, canvasRef, startIpRecording, stopIpStream, drawToCanvas } = useIpCamera(ipStreamUrl);
+  const { imgRef, canvasRef, startIpRecording, stopIpStream, drawToCanvas, streamStatus, streamError } = useIpCamera(ipStreamUrl);
 
   const isIpCamera = selectedCamera === IP_CAMERA_ID;
 
@@ -106,6 +106,8 @@ const VideoRecorder: React.FC = () => {
               disabled={isRecording || loading}
               ipStreamUrl={ipStreamUrl}
               onIpStreamUrlChange={setIpStreamUrl}
+              ipStreamStatus={streamStatus}
+              ipStreamError={streamError}
             />
 
             <VideoPreview
@@ -150,6 +152,8 @@ const VideoRecorder: React.FC = () => {
             startIpRecording={startIpRecording}
             stopIpStream={stopIpStream}
             drawToCanvas={drawToCanvas}
+            ipStreamStatus={streamStatus}
+            ipStreamUrl={ipStreamUrl}
           />
         </CardFooter>
       </Card>
