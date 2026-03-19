@@ -106,6 +106,8 @@ const VideoRecorder: React.FC = () => {
               disabled={isRecording || loading}
               ipStreamUrl={ipStreamUrl}
               onIpStreamUrlChange={setIpStreamUrl}
+              ipStreamStatus={streamStatus}
+              ipStreamError={streamError}
             />
 
             <VideoPreview
