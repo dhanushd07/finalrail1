@@ -8,9 +8,10 @@ import { useCameraSetup } from '@/hooks/useCameraSetup';
 import { useVideoUpload } from '@/hooks/useVideoUpload';
 import { useCamera } from '@/hooks/useCamera';
 import { useGPS } from '@/hooks/useGPS';
+import { useIpCamera } from '@/hooks/useIpCamera';
 
 // Components
-import CameraSelect from './CameraSelect';
+import CameraSelect, { IP_CAMERA_ID, DEFAULT_IP_URL } from './CameraSelect';
 import VideoPreview from './VideoPreview';
 import RecordingInstructions from './RecordingInstructions';
 import RecordingWarnings from './RecordingWarnings';
@@ -20,6 +21,7 @@ const VideoRecorder: React.FC = () => {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [ipStreamUrl, setIpStreamUrl] = useState<string>(DEFAULT_IP_URL);
   
   // Custom hooks for logical separation
   const {
@@ -54,8 +56,12 @@ const VideoRecorder: React.FC = () => {
     gpsErrorMessage
   } = useGPS();
 
+  const { imgRef, canvasRef, startIpRecording, stopIpStream, drawToCanvas } = useIpCamera(ipStreamUrl);
+
+  const isIpCamera = selectedCamera === IP_CAMERA_ID;
+
   useCameraSetup({
-    selectedCamera,
+    selectedCamera: isIpCamera ? '' : selectedCamera,
     videoRef,
     isRecording,
     stopRecording: () => {
@@ -98,6 +104,8 @@ const VideoRecorder: React.FC = () => {
               selectedCamera={selectedCamera}
               setSelectedCamera={setSelectedCamera}
               disabled={isRecording || loading}
+              ipStreamUrl={ipStreamUrl}
+              onIpStreamUrlChange={setIpStreamUrl}
             />
 
             <VideoPreview
@@ -107,6 +115,10 @@ const VideoRecorder: React.FC = () => {
               gpsEnabled={gpsEnabled}
               gpsAccuracy={gpsAccuracy}
               cameraPermission={cameraPermission}
+              isIpCamera={isIpCamera}
+              ipStreamUrl={ipStreamUrl}
+              ipImgRef={imgRef}
+              ipCanvasRef={canvasRef}
             />
           </div>
         </CardContent>
@@ -134,6 +146,10 @@ const VideoRecorder: React.FC = () => {
             setLoading={setLoading}
             setRecordingTime={setRecordingTime}
             getRecordingDuration={getRecordingDuration}
+            isIpCamera={isIpCamera}
+            startIpRecording={startIpRecording}
+            stopIpStream={stopIpStream}
+            drawToCanvas={drawToCanvas}
           />
         </CardFooter>
       </Card>
@@ -144,3 +160,4 @@ const VideoRecorder: React.FC = () => {
 };
 
 export default VideoRecorder;
+

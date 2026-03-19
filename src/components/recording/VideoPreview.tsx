@@ -11,6 +11,10 @@ interface VideoPreviewProps {
   gpsEnabled: boolean;
   gpsAccuracy: number | null;
   cameraPermission: boolean | null;
+  isIpCamera?: boolean;
+  ipStreamUrl?: string;
+  ipImgRef?: React.RefObject<HTMLImageElement>;
+  ipCanvasRef?: React.RefObject<HTMLCanvasElement>;
 }
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({
@@ -19,11 +23,26 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   recordingTime,
   gpsEnabled,
   gpsAccuracy,
-  cameraPermission
+  cameraPermission,
+  isIpCamera,
+  ipStreamUrl,
+  ipImgRef,
+  ipCanvasRef
 }) => {
   return (
     <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
-      {cameraPermission === false ? (
+      {isIpCamera ? (
+        <>
+          <img
+            ref={ipImgRef}
+            src={ipStreamUrl}
+            alt="IP Camera Stream"
+            crossOrigin="anonymous"
+            className="w-full h-full object-cover"
+          />
+          <canvas ref={ipCanvasRef} className="hidden" />
+        </>
+      ) : cameraPermission === false ? (
         <CameraPlaceholder />
       ) : (
         <video
@@ -49,3 +68,4 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
 };
 
 export default VideoPreview;
+
