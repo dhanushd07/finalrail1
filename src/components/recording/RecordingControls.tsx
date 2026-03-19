@@ -27,6 +27,10 @@ interface RecordingControlsProps {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   setRecordingTime: React.Dispatch<React.SetStateAction<number>>;
   getRecordingDuration: () => number;
+  isIpCamera?: boolean;
+  startIpRecording?: () => MediaRecorder | null;
+  stopIpStream?: () => void;
+  drawToCanvas?: () => void;
 }
 
 const RecordingControls: React.FC<RecordingControlsProps> = ({
@@ -46,11 +50,91 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
   uploadRecording,
   setLoading,
   setRecordingTime,
-  getRecordingDuration
+  getRecordingDuration,
+  isIpCamera,
+  startIpRecording,
+  stopIpStream,
+  drawToCanvas
 }) => {
   const { toast } = useToast();
 
   const handleStartRecording = async () => {
+    if (isIpCamera) {
+      // IP Camera flow: img → canvas → captureStream → MediaRecorder
+      if (!startIpRecording) return;
+
+      // Start drawing frames to canvas
+      drawToCanvas?.();
+
+      const gpsStarted = startGpsTracking();
+      if (!gpsStarted) {
+        console.warn('GPS tracking could not be started, continuing without GPS');
+        toast({
+          title: 'GPS Warning',
+          description: 'GPS tracking could not be started. Location data may be limited.',
+          variant: 'default',
+        });
+      }
+
+      try {
+        const recorder = startIpRecording();
+        if (!recorder) {
+          toast({
+            title: 'Error',
+            description: 'Failed to create recorder for IP camera',
+            variant: 'destructive',
+          });
+          stopGpsTracking();
+          return;
+        }
+
+        mediaRecorderRef.current = recorder;
+        chunksRef.current = [];
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            chunksRef.current.push(event.data);
+            console.log(`IP cam chunk: ${event.data.size} bytes`);
+          }
+        };
+
+        recorder.onstop = async () => {
+          console.log(`IP recording stopped with ${chunksRef.current.length} chunks`);
+          stopIpStream?.();
+          const finalDuration = getRecordingDuration();
+          console.log(`Final IP recording duration: ${finalDuration} seconds`);
+
+          await uploadRecording(
+            chunksRef.current,
+            setLoading,
+            setIsRecording,
+            setRecordingTime,
+            finalDuration
+          );
+          chunksRef.current = [];
+        };
+
+        recorder.start(1000);
+        setIsRecording(true);
+        startTimer();
+
+        toast({
+          title: 'Recording started',
+          description: gpsStarted ? 'IP Camera recording with GPS.' : 'IP Camera recording without GPS.',
+        });
+      } catch (err) {
+        console.error('Error starting IP camera recording:', err);
+        toast({
+          title: 'Recording Error',
+          description: 'Failed to start IP camera recording',
+          variant: 'destructive',
+        });
+        stopGpsTracking();
+      }
+      return;
+    }
+
+    // Existing device camera flow
     if (!videoRef.current?.srcObject) {
       toast({
         title: 'Error',
@@ -68,22 +152,19 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         description: 'GPS tracking could not be started. Location data may be limited.',
         variant: 'default',
       });
-      // Continue anyway - don't return
     }
 
     try {
       const stream = videoRef.current.srcObject as MediaStream;
       const options = { 
         mimeType: 'video/webm;codecs=vp9,opus',
-        videoBitsPerSecond: 500000 // Lower bitrate for better performance
+        videoBitsPerSecond: 500000
       };
       
-      // Try the specified mime type first
       if (MediaRecorder.isTypeSupported(options.mimeType)) {
         mediaRecorderRef.current = new MediaRecorder(stream, options);
         console.log(`Using ${options.mimeType} for recording with ${options.videoBitsPerSecond}bps`);
       } else {
-        // Fallback to browser default
         console.log(`${options.mimeType} not supported, using browser default`);
         mediaRecorderRef.current = new MediaRecorder(stream);
       }
@@ -113,7 +194,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
       };
 
       console.log('Starting MediaRecorder');
-      mediaRecorderRef.current.start(1000); // Capture data every second
+      mediaRecorderRef.current.start(1000);
       setIsRecording(true);
       startTimer();
 
@@ -136,17 +217,22 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
     if (mediaRecorderRef.current && isRecording) {
       console.log('Stopping recording');
       mediaRecorderRef.current.stop();
-      stopTimer(); // Make sure we stop the timer before calculating the final duration
+      stopTimer();
     }
   };
+
+  // For IP camera, we don't need device camera permission or a selected device camera
+  const canRecord = isIpCamera
+    ? !!selectedCamera
+    : !!selectedCamera && cameraPermission !== false && cameraError === null;
 
   return (
     <VideoStatus
       isRecording={isRecording}
       loading={loading}
       selectedCamera={selectedCamera}
-      cameraPermission={cameraPermission}
-      error={cameraError}
+      cameraPermission={isIpCamera ? true : cameraPermission}
+      error={isIpCamera ? null : cameraError}
       startRecording={handleStartRecording}
       stopRecording={handleStopRecording}
     />
@@ -154,3 +240,4 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
 };
 
 export default RecordingControls;
+
