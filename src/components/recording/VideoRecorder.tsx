@@ -56,7 +56,7 @@ const VideoRecorder: React.FC = () => {
     gpsErrorMessage
   } = useGPS();
 
-  const { imgRef, canvasRef, startIpRecording, stopIpStream, drawToCanvas, streamStatus, streamError } = useIpCamera(ipStreamUrl);
+  const { imgRef, canvasRef, startIpRecording, stopIpStream, drawToCanvas, streamStatus, streamError, proxiedUrl } = useIpCamera(ipStreamUrl);
 
   const isIpCamera = selectedCamera === IP_CAMERA_ID;
 
@@ -121,6 +121,7 @@ const VideoRecorder: React.FC = () => {
               ipStreamUrl={ipStreamUrl}
               ipImgRef={imgRef}
               ipCanvasRef={canvasRef}
+              ipProxiedUrl={proxiedUrl}
             />
           </div>
         </CardContent>

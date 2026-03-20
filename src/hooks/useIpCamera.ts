@@ -1,4 +1,6 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
+
+const SUPABASE_URL = "https://lpygwakpksolprthcrqy.supabase.co";
 
 export type IpStreamStatus = 'idle' | 'loading' | 'connected' | 'error';
 
@@ -10,6 +12,7 @@ interface UseIpCameraReturn {
   drawToCanvas: () => void;
   streamStatus: IpStreamStatus;
   streamError: string | null;
+  proxiedUrl: string;
 }
 
 export function useIpCamera(streamUrl: string): UseIpCameraReturn {
@@ -18,6 +21,19 @@ export function useIpCamera(streamUrl: string): UseIpCameraReturn {
   const animFrameRef = useRef<number | null>(null);
   const [streamStatus, setStreamStatus] = useState<IpStreamStatus>('idle');
   const [streamError, setStreamError] = useState<string | null>(null);
+
+  // Build the proxied URL through Supabase Edge Function
+  const proxiedUrl = useMemo(() => {
+    if (!streamUrl) return '';
+    try {
+      new URL(streamUrl); // validate
+      const functionUrl = `${SUPABASE_URL}/functions/v1/ip-camera-proxy?url=${encodeURIComponent(streamUrl)}`;
+      console.log(`[IP Camera] Proxied URL: ${functionUrl}`);
+      return functionUrl;
+    } catch {
+      return '';
+    }
+  }, [streamUrl]);
 
   // Track stream URL changes and reset status
   useEffect(() => {
@@ -38,28 +54,30 @@ export function useIpCamera(streamUrl: string): UseIpCameraReturn {
 
     setStreamStatus('loading');
     setStreamError(null);
-    console.log(`[IP Camera] Attempting to connect to stream: ${streamUrl}`);
+    console.log(`[IP Camera] Attempting to connect via proxy for: ${streamUrl}`);
   }, [streamUrl]);
 
   // Handle img load/error events via effect
   useEffect(() => {
     const img = imgRef.current;
-    if (!img || !streamUrl) return;
+    if (!img || !proxiedUrl) return;
 
     const handleLoad = () => {
-      console.log(`[IP Camera] Stream loaded successfully from: ${streamUrl}`);
+      console.log(`[IP Camera] Stream loaded successfully via proxy`);
       setStreamStatus('connected');
       setStreamError(null);
     };
 
     const handleError = () => {
-      console.error(`[IP Camera] Failed to load stream from: ${streamUrl}`);
+      console.error(`[IP Camera] Failed to load stream via proxy`);
       setStreamStatus('error');
       setStreamError(
-        `Cannot load stream from "${streamUrl}". Possible causes:\n` +
+        `Cannot load stream from "${streamUrl}".\n` +
+        'Possible causes:\n' +
         '• The URL is incorrect or the camera is offline\n' +
-        '• CORS is blocking the request (camera must allow cross-origin)\n' +
-        '• The stream format is not supported by the browser'
+        '• The camera is not sending an MJPEG stream\n' +
+        '• The edge function proxy encountered an error\n' +
+        '• Network connectivity issue'
       );
     };
 
@@ -70,7 +88,7 @@ export function useIpCamera(streamUrl: string): UseIpCameraReturn {
       img.removeEventListener('load', handleLoad);
       img.removeEventListener('error', handleError);
     };
-  }, [streamUrl]);
+  }, [proxiedUrl, streamUrl]);
 
   const drawToCanvas = useCallback(() => {
     const img = imgRef.current;
@@ -94,7 +112,7 @@ export function useIpCamera(streamUrl: string): UseIpCameraReturn {
     try {
       ctx.drawImage(img, 0, 0, w, h);
     } catch (err) {
-      console.error('[IP Camera] Canvas drawImage failed (likely CORS or tainted canvas):', err);
+      console.error('[IP Camera] Canvas drawImage failed:', err);
     }
 
     animFrameRef.current = requestAnimationFrame(drawToCanvas);
@@ -175,5 +193,5 @@ export function useIpCamera(streamUrl: string): UseIpCameraReturn {
     };
   }, []);
 
-  return { imgRef, canvasRef, startIpRecording, stopIpStream, drawToCanvas, streamStatus, streamError };
+  return { imgRef, canvasRef, startIpRecording, stopIpStream, drawToCanvas, streamStatus, streamError, proxiedUrl };
 }
