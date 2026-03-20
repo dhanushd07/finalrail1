@@ -27,7 +27,7 @@ export function useIpCamera(streamUrl: string): UseIpCameraReturn {
     if (!streamUrl) return '';
     try {
       new URL(streamUrl); // validate
-      const functionUrl = `${supabase.supabaseUrl}/functions/v1/ip-camera-proxy?url=${encodeURIComponent(streamUrl)}`;
+      const functionUrl = `${SUPABASE_URL}/functions/v1/ip-camera-proxy?url=${encodeURIComponent(streamUrl)}`;
       console.log(`[IP Camera] Proxied URL: ${functionUrl}`);
       return functionUrl;
     } catch {
