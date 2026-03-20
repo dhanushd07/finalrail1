@@ -121,6 +121,7 @@ const VideoRecorder: React.FC = () => {
               ipStreamUrl={ipStreamUrl}
               ipImgRef={imgRef}
               ipCanvasRef={canvasRef}
+              ipProxiedUrl={proxiedUrl}
             />
           </div>
         </CardContent>
