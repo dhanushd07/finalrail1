@@ -17,7 +17,7 @@ interface VideoPreviewProps {
   ipCanvasRef?: React.RefObject<HTMLCanvasElement>;
 }
 
-const VideoPreview: React.FC<VideoPreviewProps> = ({
+const VideoPreview: React.FC<VideoPreviewProps & { ipProxiedUrl?: string }> = ({
   videoRef,
   isRecording,
   recordingTime,
@@ -27,15 +27,19 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   isIpCamera,
   ipStreamUrl,
   ipImgRef,
-  ipCanvasRef
+  ipCanvasRef,
+  ipProxiedUrl
 }) => {
+  // Use the proxied URL for the img src to bypass CORS
+  const imgSrc = ipProxiedUrl || ipStreamUrl || '';
+
   return (
     <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
       {isIpCamera ? (
         <>
           <img
             ref={ipImgRef}
-            src={ipStreamUrl}
+            src={imgSrc}
             alt="IP Camera Stream"
             crossOrigin="anonymous"
             className="w-full h-full object-cover"
